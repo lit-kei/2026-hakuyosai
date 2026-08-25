@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function validDisplayName(name) {
+      return name is string
+        && name.size() >= 1
+        && name.size() <= 24;
+    }
+
+    function isParticipantCreate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          "displayName",
+          "balance",
+          "createdAt",
+          "updatedAt"
+        ])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.balance == 1000
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function isParticipantDisplayNameUpdate(userId) {
+      return signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "displayName",
+          "updatedAt"
+        ])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.balance == resource.data.balance
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isAdmin() || isParticipantCreate(userId);
+      allow update: if isAdmin() || isParticipantDisplayNameUpdate(userId);
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
+
