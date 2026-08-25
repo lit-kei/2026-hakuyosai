@@ -8,8 +8,8 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc,
   updateDoc,
+  runTransaction,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -38,6 +38,8 @@ const createName = document.querySelector("#createName");
 const renameName = document.querySelector("#renameName");
 const currentName = document.querySelector("#currentName");
 const userIdElement = document.querySelector("#userId");
+const publicIdElement = document.querySelector("#publicId");
+const qrCodeElement = document.querySelector("#qrCode");
 const createButton = document.querySelector("#createButton");
 const renameButton = document.querySelector("#renameButton");
 const createMessage = document.querySelector("#createMessage");
@@ -64,6 +66,121 @@ function showMessage(element, message, type = "info") {
   element.textContent = message;
   element.className = `message ${type}`;
   element.hidden = !message;
+}
+
+function generatePublicId() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let index = 0; index < 6; index += 1) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
+}
+
+async function assignPublicId(userId) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const publicId = generatePublicId();
+    let assignedPublicId = publicId;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, "users", userId);
+        const publicIdRef = doc(db, "publicIds", publicId);
+        const userSnapshot = await transaction.get(userRef);
+        const publicIdSnapshot = await transaction.get(publicIdRef);
+
+        if (!userSnapshot.exists()) {
+          throw new Error("アカウントが見つかりません。");
+        }
+        if (userSnapshot.data().publicId) {
+          assignedPublicId = userSnapshot.data().publicId;
+          return;
+        }
+        if (publicIdSnapshot.exists()) {
+          throw new Error("PUBLIC_ID_EXISTS");
+        }
+
+        transaction.set(publicIdRef, {
+          userId,
+          createdAt: serverTimestamp()
+        });
+        transaction.update(userRef, {
+          publicId,
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      return assignedPublicId;
+    } catch (error) {
+      if (error.message !== "PUBLIC_ID_EXISTS") {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("公開IDの生成に失敗しました。もう一度お試しください。");
+}
+
+async function createAccount(userId, displayName) {
+  const userRef = doc(db, "users", userId);
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const publicId = generatePublicId();
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userSnapshot = await transaction.get(userRef);
+        const publicIdRef = doc(db, "publicIds", publicId);
+        const publicIdSnapshot = await transaction.get(publicIdRef);
+
+        if (userSnapshot.exists()) {
+          throw new Error("この端末ではすでにアカウントが作成されています。");
+        }
+        if (publicIdSnapshot.exists()) {
+          throw new Error("PUBLIC_ID_EXISTS");
+        }
+
+        transaction.set(publicIdRef, {
+          userId,
+          createdAt: serverTimestamp()
+        });
+        transaction.set(userRef, {
+          displayName,
+          balance: INITIAL_BALANCE,
+          publicId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      return {
+        displayName,
+        balance: INITIAL_BALANCE,
+        publicId
+      };
+    } catch (error) {
+      if (error.message !== "PUBLIC_ID_EXISTS") {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("公開IDの生成に失敗しました。もう一度お試しください。");
+}
+
+function renderQrCode(publicId) {
+  qrCodeElement.innerHTML = "";
+  if (!publicId || typeof window.QRCode !== "function") {
+    qrCodeElement.textContent = "QRコードを表示できません。公開IDを使ってください。";
+    return;
+  }
+
+  new window.QRCode(qrCodeElement, {
+    text: publicId,
+    width: 180,
+    height: 180,
+    colorDark: "#16201f",
+    colorLight: "#ffffff",
+    correctLevel: window.QRCode.CorrectLevel.H
+  });
 }
 
 async function ensureAnonymousUser() {
@@ -101,7 +218,9 @@ function renderAccount(userId, data) {
   localStorage.setItem(USER_ID_STORAGE_KEY, userId);
   currentName.textContent = data.displayName;
   userIdElement.textContent = userId;
+  publicIdElement.textContent = data.publicId || "発行中";
   renameName.value = data.displayName;
+  renderQrCode(data.publicId);
   setVisibleState(true);
 }
 
@@ -116,7 +235,13 @@ async function loadAccount() {
     const snapshot = await getDoc(doc(db, "users", authUser.uid));
 
     if (snapshot.exists()) {
-      renderAccount(authUser.uid, snapshot.data());
+      const userData = snapshot.data();
+      if (!userData.publicId) {
+        const publicId = await assignPublicId(authUser.uid);
+        renderAccount(authUser.uid, { ...userData, publicId });
+        return;
+      }
+      renderAccount(authUser.uid, userData);
       return;
     }
 
@@ -151,14 +276,7 @@ createForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    const userData = {
-      displayName: validation.value,
-      balance: INITIAL_BALANCE,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-
-    await setDoc(userRef, userData);
+    const userData = await createAccount(authUser.uid, validation.value);
     renderAccount(authUser.uid, { ...userData, displayName: validation.value });
     showMessage(renameMessage, "アカウントを作成しました。", "success");
   } catch (error) {

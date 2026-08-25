@@ -16,6 +16,7 @@
         <nav class="nav-links" aria-label="ページ">
           <a href="signin.html">参加者</a>
           <a href="ranking.html">ランキング</a>
+          <a href="room.html">部屋</a>
           <a href="manage.html">管理</a>
         </nav>
       </header>
@@ -44,7 +45,16 @@
             <dt>ユーザーID</dt>
             <dd id="userId"></dd>
           </div>
+          <div class="meta-row">
+            <dt>公開ID</dt>
+            <dd id="publicId"></dd>
+          </div>
         </dl>
+        <div class="qr-profile">
+          <span class="label">入室用QRコード</span>
+          <div id="qrCode" class="qr-code"></div>
+          <p class="help-text">QRコードが使えない場合は、公開IDをスタッフに伝えてください。</p>
+        </div>
       </section>
 
       <section id="renamePanel" class="panel hidden">
@@ -60,7 +70,7 @@
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script type="module" src="assets/js/signin.js"></script>
   </body>
 </html>
-

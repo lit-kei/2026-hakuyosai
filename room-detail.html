@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>個別部屋管理 | 柏葉祭カジノ</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1 id="roomTitle" class="brand-title">個別部屋管理</h1>
+          <span class="brand-subtitle">部屋内の参加者と資産を管理します</span>
+        </div>
+        <nav class="nav-links" aria-label="ページ">
+          <a href="room.html">部屋一覧</a>
+          <a id="scanLink" href="room-scan.html">QR/ID追加</a>
+          <a href="manage.html">管理</a>
+        </nav>
+      </header>
+
+      <section id="adminLoginPanel" class="panel">
+        <h2>管理者ログイン</h2>
+        <form id="adminLoginForm" class="stack">
+          <label class="field">
+            <span>管理者パスワード</span>
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </label>
+          <button id="adminLoginButton" type="submit">ログイン</button>
+          <p id="adminLoginMessage" class="message" hidden></p>
+        </form>
+      </section>
+
+      <section id="mainPanel" class="hidden">
+        <section class="panel">
+          <div class="room-actions">
+            <div>
+              <span class="label">部屋</span>
+              <p id="roomNameDisplay" class="current-name"></p>
+            </div>
+            <a id="scanButton" class="link-button primary-link" href="room-scan.html">QR/IDで参加者追加</a>
+          </div>
+          <p id="roomMessage" class="message" hidden></p>
+        </section>
+
+        <section class="panel">
+          <h2>参加者</h2>
+          <p id="memberMessage" class="message info">参加者を読み込み中です。</p>
+          <div id="memberList" class="member-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="assets/js/room-detail.js"></script>
+  </body>
+</html>
+

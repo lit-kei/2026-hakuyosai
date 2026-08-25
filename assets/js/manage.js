@@ -1,4 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getAuth,
+  signInAnonymously
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 import {
   getFirestore,
@@ -14,8 +18,6 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-import { checkAdminPassword, showMessage } from "./secret.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyDoBskKHJxPUfnVz0rhinxHBm6VuZ6ndoQ",
   authDomain: "hakuyosai-ae580.firebaseapp.com",
@@ -26,6 +28,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
@@ -63,6 +66,25 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("ja-JP");
 }
 
+function showMessage(element, message, type = "info") {
+  element.textContent = message;
+  element.className = `message ${type}`;
+  element.hidden = !message;
+}
+
+async function checkAdminPassword(inputPassword) {
+  const snapshot = await getDoc(doc(db, "password", "password"));
+  if (!snapshot.exists()) {
+    throw new Error("パスワード設定が見つかりません。");
+  }
+  return snapshot.data().password === inputPassword;
+}
+
+async function ensureStaffSession() {
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+}
 
 function setProcessing(processing) {
   isProcessing = processing;
@@ -142,9 +164,10 @@ adminLoginForm.addEventListener("submit", async (event) => {
   try {
     const password = adminPassword.value;
 
-    const isAdmin = await checkAdminPassword(db, password);
+    const isAdmin = await checkAdminPassword(password);
 
     if (isAdmin) {
+      await ensureStaffSession();
       adminLoginPanel.classList.add("hidden");
       mainPanel.classList.remove("hidden");
 

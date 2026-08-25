@@ -175,6 +175,14 @@ button:disabled {
   background: #8d2f27;
 }
 
+.primary-link {
+  display: inline-grid;
+  place-items: center;
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -215,6 +223,35 @@ button:disabled {
 
 .balance-display {
   font-variant-numeric: tabular-nums;
+}
+
+.help-text {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.qr-profile {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.qr-code {
+  display: grid;
+  place-items: center;
+  width: min(220px, 100%);
+  min-height: 220px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.qr-code img,
+.qr-code canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 .meta-list {
@@ -329,6 +366,101 @@ button:disabled {
   background: #fff9ea;
 }
 
+.room-list,
+.member-list {
+  display: grid;
+  gap: 10px;
+}
+
+.room-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.room-card:hover {
+  border-color: var(--primary);
+  background: #edf7f6;
+}
+
+.room-card strong {
+  font-size: 1.15rem;
+}
+
+.room-card span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.room-actions {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.member-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.member-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.member-header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.member-header strong {
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.member-header span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.member-balance {
+  margin: 0;
+  font-size: 1.7rem;
+  line-height: 1.1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+}
+
+.qr-reader {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.qr-reader video {
+  max-width: 100%;
+}
+
 .hidden {
   display: none !important;
 }
@@ -345,7 +477,7 @@ button:disabled {
 
   .nav-links {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .nav-links a {
@@ -359,6 +491,20 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .room-actions,
+  .member-header {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .room-actions {
+    display: grid;
+  }
+
+  .inline-form {
+    grid-template-columns: 1fr;
+  }
+
   .ranking-item {
     grid-template-columns: auto 1fr;
   }
@@ -368,4 +514,3 @@ button:disabled {
     font-size: 1.55rem;
   }
 }
-

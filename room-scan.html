@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QR/ID参加登録 | 柏葉祭カジノ</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1 id="roomTitle" class="brand-title">QR/ID参加登録</h1>
+          <span class="brand-subtitle">参加者の公開IDを読み取り、この部屋へ登録します</span>
+        </div>
+        <nav class="nav-links" aria-label="ページ">
+          <a id="detailLink" href="room-detail.html">部屋へ戻る</a>
+          <a href="room.html">部屋一覧</a>
+        </nav>
+      </header>
+
+      <section id="adminLoginPanel" class="panel">
+        <h2>管理者ログイン</h2>
+        <form id="adminLoginForm" class="stack">
+          <label class="field">
+            <span>管理者パスワード</span>
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </label>
+          <button id="adminLoginButton" type="submit">ログイン</button>
+          <p id="adminLoginMessage" class="message" hidden></p>
+        </form>
+      </section>
+
+      <section id="mainPanel" class="hidden">
+        <section class="panel">
+          <h2>QRコード読み取り</h2>
+          <div id="reader" class="qr-reader"></div>
+          <p id="scanMessage" class="message info">カメラを許可して、参加者のQRコードを読み取ってください。</p>
+        </section>
+
+        <section class="panel">
+          <h2>ID手入力</h2>
+          <form id="manualForm" class="stack">
+            <label class="field">
+              <span>公開ID</span>
+              <input id="manualPublicId" maxlength="6" inputmode="latin" autocomplete="off" placeholder="ABC123" required>
+            </label>
+            <button id="manualButton" type="submit">この部屋に追加</button>
+            <p id="manualMessage" class="message" hidden></p>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script type="module" src="assets/js/room-scan.js"></script>
+  </body>
+</html>
