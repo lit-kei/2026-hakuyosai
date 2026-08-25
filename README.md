@@ -12,7 +12,7 @@
 
 1. Firebase Consoleでプロジェクトを作成します。
 2. Webアプリを追加し、Firebase configを取得します。
-3. `assets/js/firebase-config.js` の値を自分のプロジェクトの値に変更します。
+3. `assets/js/signin.js`、`assets/js/manage.js`、`assets/js/ranking.js` の先頭にある `firebaseConfig` を自分のプロジェクトの値に変更します。
 4. Authenticationで以下を有効化します。
    - Anonymous
    - Email/Password
@@ -42,10 +42,10 @@ transactions/{transactionId}
 
 ## 初期残高の変更方法
 
-初期残高は `assets/js/firebase.js` の次の定数で変更できます。
+初期残高は `assets/js/signin.js` の次の定数で変更できます。
 
 ```js
-export const INITIAL_BALANCE = 1000;
+const INITIAL_BALANCE = 1000;
 ```
 
 変更した場合は、`firestore.rules` の `request.resource.data.balance == 1000` も同じ値に変更してください。
@@ -90,4 +90,3 @@ await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
 `localStorage` だけでは本人確認を安全に行えません。この実装ではFirestore Rulesの本人判定にFirebase AuthのUIDを使っています。ただし、ランキングのために `users` は公開読み取り可能です。表示名と残高以外の個人情報は保存しないでください。
 
 より強い本人確認や管理者監査が必要な場合は、Firebase Authenticationの通常ログイン、Cloud Functions、または独自サーバーの導入を検討してください。
-

@@ -1,9 +1,11 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  auth,
-  db,
+  getAuth,
   signInWithEmailAndPassword,
-  signOut,
-  requireAdminClaim,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getFirestore,
   collection,
   doc,
   query,
@@ -12,10 +14,21 @@ import {
   limit,
   onSnapshot,
   runTransaction,
-  serverTimestamp,
-  formatNumber,
-  showMessage
-} from "./firebase.js";
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
 const adminLoginForm = document.querySelector("#adminLoginForm");
@@ -48,6 +61,26 @@ let selectedUserId = "";
 let unsubscribeUsers = null;
 let unsubscribeTransactions = null;
 let isProcessing = false;
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("ja-JP");
+}
+
+function showMessage(element, message, type = "info") {
+  element.textContent = message;
+  element.className = `message ${type}`;
+  element.hidden = !message;
+}
+
+async function requireAdminClaim() {
+  const user = auth.currentUser;
+  if (!user) {
+    return false;
+  }
+
+  const token = await user.getIdTokenResult(true);
+  return token.claims.admin === true;
+}
 
 function setProcessing(processing) {
   isProcessing = processing;
@@ -323,4 +356,3 @@ setBalanceForm.addEventListener("submit", (event) => {
 
   updateBalance({ type: "set", targetBalance });
 });
-

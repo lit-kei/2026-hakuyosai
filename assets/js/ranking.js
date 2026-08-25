@@ -1,16 +1,37 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  db,
+  getFirestore,
   collection,
   query,
   orderBy,
   limit,
-  onSnapshot,
-  formatNumber,
-  showMessage
-} from "./firebase.js";
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const rankingMessage = document.querySelector("#rankingMessage");
 const rankingList = document.querySelector("#rankingList");
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("ja-JP");
+}
+
+function showMessage(element, message, type = "info") {
+  element.textContent = message;
+  element.className = `message ${type}`;
+  element.hidden = !message;
+}
 
 function renderRanking(users) {
   rankingList.innerHTML = "";
@@ -57,4 +78,3 @@ try {
 } catch (error) {
   showMessage(rankingMessage, `Firestoreへの接続に失敗しました: ${error.message}`, "error");
 }
-

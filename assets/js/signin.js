@@ -1,16 +1,33 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  INITIAL_BALANCE,
-  USER_ID_STORAGE_KEY,
-  db,
-  ensureAnonymousUser,
-  validateDisplayName,
-  showMessage,
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getFirestore,
   doc,
   getDoc,
   setDoc,
   updateDoc,
   serverTimestamp
-} from "./firebase.js";
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const INITIAL_BALANCE = 1000;
+const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const loadingPanel = document.querySelector("#loadingPanel");
 const createPanel = document.querySelector("#createPanel");
@@ -28,6 +45,50 @@ const createMessage = document.querySelector("#createMessage");
 const renameMessage = document.querySelector("#renameMessage");
 
 let currentUserId = "";
+
+function normalizeDisplayName(value) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function validateDisplayName(value) {
+  const name = normalizeDisplayName(value);
+  if (name.length < 1) {
+    return { ok: false, message: "表示名を入力してください。" };
+  }
+  if (name.length > 24) {
+    return { ok: false, message: "表示名は24文字以内にしてください。" };
+  }
+  return { ok: true, value: name };
+}
+
+function showMessage(element, message, type = "info") {
+  element.textContent = message;
+  element.className = `message ${type}`;
+  element.hidden = !message;
+}
+
+async function ensureAnonymousUser() {
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+
+  return new Promise((resolve, reject) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      unsubscribe();
+      if (user) {
+        resolve(user);
+        return;
+      }
+
+      try {
+        const result = await signInAnonymously(auth);
+        resolve(result.user);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
 
 function setVisibleState(hasAccount) {
   loadingPanel.classList.add("hidden");
