@@ -19,9 +19,17 @@
         </nav>
       </header>
 
-      <section id="adminLoginPanel" class="panel">
+      <section id="adminLoadingPanel" class="panel">
+        <p class="message info">管理者ログイン状態を確認中です。</p>
+      </section>
+
+      <section id="adminLoginPanel" class="panel hidden">
         <h2>管理者ログイン</h2>
         <form id="adminLoginForm" class="stack">
+          <label class="field">
+            <span>管理者メールアドレス</span>
+            <input id="adminEmail" type="email" autocomplete="username" required>
+          </label>
           <label class="field">
             <span>管理者パスワード</span>
             <input id="adminPassword" type="password" autocomplete="current-password" required>

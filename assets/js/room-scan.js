@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
-  signInAnonymously
+  onAuthStateChanged,
+  signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
@@ -25,8 +26,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const roomId = new URLSearchParams(location.search).get("id");
+const adminLoadingPanel = document.querySelector("#adminLoadingPanel");
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
 const adminLoginForm = document.querySelector("#adminLoginForm");
+const adminEmail = document.querySelector("#adminEmail");
 const adminPassword = document.querySelector("#adminPassword");
 const adminLoginButton = document.querySelector("#adminLoginButton");
 const adminLoginMessage = document.querySelector("#adminLoginMessage");
@@ -43,6 +46,8 @@ let room = null;
 let scanner = null;
 let isProcessing = false;
 let lastScannedPublicId = "";
+let scannerStarted = false;
+let adminAreaShown = false;
 
 function showMessage(element, message, type = "info") {
   element.textContent = message;
@@ -54,17 +59,38 @@ function normalizePublicId(value) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-async function checkAdminPassword(inputPassword) {
-  const snapshot = await getDoc(doc(db, "password", "password"));
-  if (!snapshot.exists()) {
-    throw new Error("パスワード設定が見つかりません。");
+async function hasAdminClaim(forceRefresh = false) {
+  if (!auth.currentUser) {
+    return false;
   }
-  return snapshot.data().password === inputPassword;
+  const token = await auth.currentUser.getIdTokenResult(forceRefresh);
+  return token.claims.admin === true;
 }
 
-async function ensureStaffSession() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
+async function showAdminArea() {
+  if (adminAreaShown) {
+    return;
+  }
+  const roomLoaded = await loadRoom();
+  if (!roomLoaded) {
+    adminLoadingPanel.classList.add("hidden");
+    adminLoginPanel.classList.remove("hidden");
+    return;
+  }
+
+  adminAreaShown = true;
+  adminLoadingPanel.classList.add("hidden");
+  adminLoginPanel.classList.add("hidden");
+  mainPanel.classList.remove("hidden");
+  startScanner();
+}
+
+function showAdminLogin(message = "") {
+  adminLoadingPanel.classList.add("hidden");
+  adminLoginPanel.classList.remove("hidden");
+  mainPanel.classList.add("hidden");
+  if (message) {
+    showMessage(adminLoginMessage, message, "error");
   }
 }
 
@@ -134,11 +160,15 @@ async function addPublicIdToRoom(rawPublicId, targetMessage) {
 }
 
 function startScanner() {
+  if (scannerStarted) {
+    return;
+  }
   if (typeof window.Html5QrcodeScanner !== "function") {
     showMessage(scanMessage, "QR読み取りライブラリを読み込めませんでした。ID手入力を使ってください。", "error");
     return;
   }
 
+  scannerStarted = true;
   scanner = new window.Html5QrcodeScanner(
     "reader",
     {
@@ -168,21 +198,15 @@ adminLoginForm.addEventListener("submit", async (event) => {
   adminLoginButton.disabled = true;
 
   try {
-    const isAdmin = await checkAdminPassword(adminPassword.value);
+    const result = await signInWithEmailAndPassword(auth, adminEmail.value.trim(), adminPassword.value);
+    const token = await result.user.getIdTokenResult(true);
+    const isAdmin = token.claims.admin === true;
     if (!isAdmin) {
-      showMessage(adminLoginMessage, "パスワードが違います。", "error");
+      showMessage(adminLoginMessage, "このアカウントには管理者権限がありません。", "error");
       return;
     }
 
-    await ensureStaffSession();
-    const roomLoaded = await loadRoom();
-    if (!roomLoaded) {
-      return;
-    }
-
-    adminLoginPanel.classList.add("hidden");
-    mainPanel.classList.remove("hidden");
-    startScanner();
+    await showAdminArea();
   } catch (error) {
     showMessage(adminLoginMessage, `ログインに失敗しました: ${error.message}`, "error");
   } finally {
@@ -202,5 +226,22 @@ manualForm.addEventListener("submit", (event) => {
 window.addEventListener("pagehide", () => {
   if (scanner) {
     scanner.clear().catch(() => {});
+  }
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showAdminLogin();
+    return;
+  }
+
+  try {
+    if (await hasAdminClaim()) {
+      await showAdminArea();
+    } else {
+      showAdminLogin("このアカウントには管理者権限がありません。");
+    }
+  } catch (error) {
+    showAdminLogin(`ログイン状態の確認に失敗しました: ${error.message}`);
   }
 });

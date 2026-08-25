@@ -1,14 +1,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
-  signInAnonymously
+  onAuthStateChanged,
+  signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 
 import {
   getFirestore,
   collection,
   doc,
-  getDoc,
   query,
   orderBy,
   where,
@@ -31,8 +31,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+const adminLoadingPanel = document.querySelector("#adminLoadingPanel");
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
 const adminLoginForm = document.querySelector("#adminLoginForm");
+const adminEmail = document.querySelector("#adminEmail");
 const adminPassword = document.querySelector("#adminPassword");
 const adminLoginButton = document.querySelector("#adminLoginButton");
 const adminLoginMessage = document.querySelector("#adminLoginMessage");
@@ -61,6 +63,7 @@ let selectedUserId = "";
 let unsubscribeUsers = null;
 let unsubscribeTransactions = null;
 let isProcessing = false;
+let adminAreaShown = false;
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("ja-JP");
@@ -72,17 +75,31 @@ function showMessage(element, message, type = "info") {
   element.hidden = !message;
 }
 
-async function checkAdminPassword(inputPassword) {
-  const snapshot = await getDoc(doc(db, "password", "password"));
-  if (!snapshot.exists()) {
-    throw new Error("パスワード設定が見つかりません。");
+async function hasAdminClaim(forceRefresh = false) {
+  if (!auth.currentUser) {
+    return false;
   }
-  return snapshot.data().password === inputPassword;
+  const token = await auth.currentUser.getIdTokenResult(forceRefresh);
+  return token.claims.admin === true;
 }
 
-async function ensureStaffSession() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
+function showAdminArea() {
+  if (adminAreaShown) {
+    return;
+  }
+  adminAreaShown = true;
+  adminLoadingPanel.classList.add("hidden");
+  adminLoginPanel.classList.add("hidden");
+  mainPanel.classList.remove("hidden");
+  watchUsers();
+}
+
+function showAdminLogin(message = "") {
+  adminLoadingPanel.classList.add("hidden");
+  adminLoginPanel.classList.remove("hidden");
+  mainPanel.classList.add("hidden");
+  if (message) {
+    showMessage(adminLoginMessage, message, "error");
   }
 }
 
@@ -95,9 +112,9 @@ function setProcessing(processing) {
     });
 }
 
-function parseAmount(value, allowZero = false) {
+function parseAmount(value, allowZero = false, allowNegative = false) {
   const amount = Number(value);
-  if (!Number.isInteger(amount) || amount < 0 || (!allowZero && amount === 0)) {
+  if (!Number.isInteger(amount) || (!allowNegative && amount < 0) || (!allowZero && amount === 0)) {
     return null;
   }
   return amount;
@@ -162,21 +179,17 @@ adminLoginForm.addEventListener("submit", async (event) => {
   adminLoginButton.disabled = true;
 
   try {
-    const password = adminPassword.value;
-
-    const isAdmin = await checkAdminPassword(password);
+    const result = await signInWithEmailAndPassword(auth, adminEmail.value.trim(), adminPassword.value);
+    const token = await result.user.getIdTokenResult(true);
+    const isAdmin = token.claims.admin === true;
 
     if (isAdmin) {
-      await ensureStaffSession();
-      adminLoginPanel.classList.add("hidden");
-      mainPanel.classList.remove("hidden");
-
-      watchUsers();
+      showAdminArea();
     } else {
       
       showMessage(
         adminLoginMessage,
-        "パスワードが違います。",
+        "このアカウントには管理者権限がありません。",
         "error"
       );
       return;
@@ -275,7 +288,7 @@ async function updateBalance({ type, amount = 0, targetBalance = null }) {
   }
 
   const nextBalance = targetBalance === null ? Number(user.balance || 0) + amount : targetBalance;
-  if (!Number.isInteger(nextBalance) || nextBalance < 0) {
+  if (!Number.isInteger(nextBalance)) {
     showMessage(assetMessage, "変更後の残高が不正です。", "error");
     return;
   }
@@ -300,8 +313,8 @@ async function updateBalance({ type, amount = 0, targetBalance = null }) {
 
       const currentBalance = Number(userSnapshot.data().balance || 0);
       const balanceAfter = targetBalance === null ? currentBalance + amount : targetBalance;
-      if (!Number.isInteger(balanceAfter) || balanceAfter < 0) {
-        throw new Error("残高が0未満になる操作はできません。");
+      if (!Number.isInteger(balanceAfter)) {
+        throw new Error("変更後の残高が不正です。");
       }
 
       const transactionRef = doc(collection(db, "transactions"));
@@ -366,11 +379,28 @@ adjustForm.addEventListener("submit", (event) => {
 
 setBalanceForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const targetBalance = parseAmount(setBalanceAmount.value, true);
+  const targetBalance = parseAmount(setBalanceAmount.value, true, true);
   if (targetBalance === null) {
-    showMessage(assetMessage, "残高は0以上の整数で入力してください。", "error");
+    showMessage(assetMessage, "残高は整数で入力してください。", "error");
     return;
   }
 
   updateBalance({ type: "set", targetBalance });
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showAdminLogin();
+    return;
+  }
+
+  try {
+    if (await hasAdminClaim()) {
+      showAdminArea();
+    } else {
+      showAdminLogin("このアカウントには管理者権限がありません。");
+    }
+  } catch (error) {
+    showAdminLogin(`ログイン状態の確認に失敗しました: ${error.message}`);
+  }
 });

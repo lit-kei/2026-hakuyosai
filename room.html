@@ -14,16 +14,27 @@
           <span class="brand-subtitle">部屋を作成し、個別の部屋へ移動します</span>
         </div>
         <nav class="nav-links" aria-label="ページ">
-          <a href="signin.html">参加者</a>
-          <a href="ranking.html">ランキング</a>
           <a href="manage.html">管理</a>
           <a href="room.html">部屋</a>
         </nav>
       </header>
-      <section id="adminLoginPanel" class="panel">
+      <section id="adminLoadingPanel" class="panel">
+        <p class="message info">管理者ログイン状態を確認中です。</p>
+      </section>
+
+      <section id="adminLoginPanel" class="panel hidden">
         <h2>管理者ログイン</h2>
 
         <form id="adminLoginForm" class="stack">
+          <label class="field">
+            <span>管理者メールアドレス</span>
+            <input
+              id="adminEmail"
+              type="email"
+              autocomplete="username"
+              required
+            >
+          </label>
           <label class="field">
             <span>管理者パスワード</span>
             <input

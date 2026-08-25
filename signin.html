@@ -3,21 +3,19 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>参加者アカウント | 柏葉祭カジノ</title>
+    <title>参加者ログイン | 柏葉祭カジノ</title>
     <link rel="stylesheet" href="assets/css/styles.css">
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div class="brand">
-          <h1 class="brand-title">参加者アカウント</h1>
+          <h1 class="brand-title">参加者ログイン</h1>
           <span class="brand-subtitle">柏葉祭カジノ 資産管理</span>
         </div>
         <nav class="nav-links" aria-label="ページ">
-          <a href="signin.html">参加者</a>
+          <a href="profile.html">プロフィール</a>
           <a href="ranking.html">ランキング</a>
-          <a href="room.html">部屋</a>
-          <a href="manage.html">管理</a>
         </nav>
       </header>
 
@@ -25,52 +23,32 @@
         <p class="message info">読み込み中です。</p>
       </section>
 
+      <section id="loginPanel" class="panel hidden">
+        <h2>6文字IDでログイン</h2>
+        <form id="loginForm" class="stack">
+          <label class="field">
+            <span>公開ID</span>
+            <input id="loginPublicId" maxlength="6" inputmode="latin" autocomplete="off" placeholder="ABC123" required>
+          </label>
+          <button id="loginButton" type="submit">ログイン</button>
+          <p id="loginMessage" class="message" hidden></p>
+        </form>
+      </section>
+
       <section id="createPanel" class="panel hidden">
-        <h2>アカウント作成</h2>
+        <h2>新規アカウント作成</h2>
         <form id="createForm" class="stack">
           <label class="field">
             <span>表示名</span>
             <input id="createName" name="displayName" autocomplete="nickname" maxlength="24" required>
           </label>
-          <button id="createButton" type="submit">作成する</button>
+          <button id="createButton" type="submit">作成してプロフィールへ</button>
           <p id="createMessage" class="message" hidden></p>
-        </form>
-      </section>
-
-      <section id="accountPanel" class="panel hidden">
-        <h2>現在の表示名</h2>
-        <p id="currentName" class="current-name"></p>
-        <dl class="meta-list">
-          <div class="meta-row">
-            <dt>ユーザーID</dt>
-            <dd id="userId"></dd>
-          </div>
-          <div class="meta-row">
-            <dt>公開ID</dt>
-            <dd id="publicId"></dd>
-          </div>
-        </dl>
-        <div class="qr-profile">
-          <span class="label">入室用QRコード</span>
-          <div id="qrCode" class="qr-code"></div>
-          <p class="help-text">QRコードが使えない場合は、公開IDをスタッフに伝えてください。</p>
-        </div>
-      </section>
-
-      <section id="renamePanel" class="panel hidden">
-        <h2>表示名変更</h2>
-        <form id="renameForm" class="stack">
-          <label class="field">
-            <span>新しい表示名</span>
-            <input id="renameName" name="displayName" autocomplete="nickname" maxlength="24" required>
-          </label>
-          <button id="renameButton" type="submit">変更する</button>
-          <p id="renameMessage" class="message" hidden></p>
         </form>
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <script type="module" src="assets/js/signin.js"></script>
   </body>
 </html>
+

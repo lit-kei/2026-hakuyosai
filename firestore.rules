@@ -50,16 +50,26 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
-    match /password/{passwordId} {
-      allow read: if true;
-      allow write: if false;
+    function isPublicProfileUpdate() {
+      return signedIn()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "displayName",
+          "publicId",
+          "updatedAt"
+        ])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.publicId is string
+        && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
+        && request.resource.data.balance == resource.data.balance
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
     }
 
     match /users/{userId} {
       allow read: if true;
       allow create: if isAdmin() || isParticipantCreate(userId);
-      allow update: if isAdmin() || isParticipantProfileUpdate(userId) || signedIn();
-      allow delete: if isAdmin() || signedIn();
+      allow update: if isAdmin() || isParticipantProfileUpdate(userId) || isPublicProfileUpdate();
+      allow delete: if isAdmin();
     }
 
     match /publicIds/{publicId} {
@@ -72,17 +82,16 @@ service cloud.firestore {
 
     match /rooms/{roomId} {
       allow read: if true;
-      allow create, update, delete: if signedIn();
+      allow create, update, delete: if isAdmin();
     }
 
     match /roomMembers/{userId} {
       allow read: if true;
-      allow create, update, delete: if signedIn();
+      allow create, update, delete: if isAdmin();
     }
 
     match /transactions/{transactionId} {
-      allow read: if signedIn();
-      allow create, update, delete: if signedIn();
+      allow read, create, update, delete: if isAdmin();
     }
   }
 }

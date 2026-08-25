@@ -4,9 +4,11 @@
 
 ## ページ
 
-- `signin.html`: 参加者のアカウント作成、現在の表示名確認、表示名変更
+- `signin.html`: 参加者の新規アカウント作成、6文字公開IDログイン
+- `profile.html`: 表示名変更、公開ID、QRコード、現在資産の確認
 - `manage.html`: 運営スタッフによるユーザー検索、資産変更、取引履歴確認
 - `ranking.html`: 現在資産のランキング表示
+- `lookup.html`: スマホを持っていない参加者向けの運営端末プロフィール確認
 - `room.html`: 部屋の作成、部屋一覧
 - `room-detail.html?id={roomId}`: 個別部屋の参加者、残高、資産変更
 - `room-scan.html?id={roomId}`: 部屋専用のQRコード読み取り、公開ID手入力
@@ -18,9 +20,9 @@
 3. `assets/js/*.js` の先頭にある `firebaseConfig` を自分のプロジェクトの値に変更します。
 4. Authenticationで以下を有効化します。
    - Anonymous
+   - Email/Password
 5. Firestore Databaseを作成します。
 6. `firestore.rules` の内容をFirestore Security Rulesへ設定します。
-7. Firestoreに `password/password` ドキュメントを作成し、`password` フィールドに運営用パスワードを入れます。
 
 ## Firestoreのコレクション構造
 
@@ -57,16 +59,15 @@ transactions/{transactionId}
   roomId: string optional
   roomName: string optional
   createdAt: timestamp
-
-password/password
-  password: string
 ```
 
-`users/{userId}` はFirebase Anonymous AuthのUIDを使用します。端末側にも `localStorage` の `hakuyosaiUserId` として保存しています。
+`users/{userId}` は新規作成時のFirebase Anonymous AuthのUIDを使用します。端末側にも `localStorage` の `hakuyosaiUserId` と `hakuyosaiPublicId` として保存しています。
 
-`publicId` は大文字英字と数字からなる6文字のIDです。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
+`publicId` は大文字英字と数字からなる6文字のIDです。参加者は `signin.html` でこのIDを入力して `profile.html` に入れます。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
 
 `roomMembers/{userId}` は参加者の現在いる部屋を表します。同じ参加者を別の部屋に追加すると、このドキュメントが上書きされるため、所属は常に1部屋だけです。
+
+`balance` はマイナス値も許可します。ゲーム内の借金や後払い精算が必要な場合は、そのまま負の残高として記録できます。
 
 ## 初期残高の変更方法
 
@@ -80,9 +81,15 @@ const INITIAL_BALANCE = 1000;
 
 ## 管理者設定方法
 
-管理者パスワードをJavaScript内に平文で埋め込まないため、運営画面はFirestoreの `password/password` ドキュメントに保存した `password` フィールドを読み、入力値と一致するかをブラウザ側で確認します。
+管理者はFirebase AuthenticationのEmail/Passwordアカウントとして作成し、custom claimで `admin: true` を付与します。
 
-`manage.html`、`room.html`、`room-detail.html`、`room-scan.html` はこの方式を使います。パスワード通過後、スタッフ画面はFirebase Anonymous Authへ入り、Firestoreへ書き込みます。
+Firebase Admin SDKが使える環境で、以下のように設定してください。
+
+```js
+await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
+```
+
+`manage.html`、`room.html`、`room-detail.html`、`room-scan.html` は管理者メールアドレスとパスワードでログインし、IDトークン内の `admin` claimを確認します。Firebase Authのログイン状態はブラウザに保持されるため、同じ端末では毎回入力せずに運営画面へ入れます。
 
 ## Firestore Security Rules
 
@@ -90,9 +97,9 @@ const INITIAL_BALANCE = 1000;
 
 - 一般参加者は自分の `users/{uid}` だけ作成できます。
 - 一般参加者が作成できる初期残高は `INITIAL_BALANCE` と同じ値だけです。
-- 一般参加者は自分の `displayName`、`publicId`、`updatedAt` を更新できます。
+- 6文字IDログイン後のプロフィール更新のため、匿名認証済みクライアントが `users` を更新できる簡易運用にしています。
 - `publicIds` は6文字IDからユーザーを探すため公開読み取り可能です。
-- `rooms`、`roomMembers`、`transactions` はスタッフ画面が匿名認証後に読み書きします。
+- `rooms`、`roomMembers`、`transactions` は `admin: true` の管理者だけが読み書きできます。
 - ランキング表示のため、`users` は公開読み取り可能です。
 
 ## GitHub Pagesで公開する方法
@@ -101,14 +108,18 @@ const INITIAL_BALANCE = 1000;
 2. GitHubのリポジトリ設定で Pages を開きます。
 3. Sourceを `Deploy from a branch` にします。
 4. Branchを `main`、フォルダを `/root` にして保存します。
-5. 公開URLで `signin.html`、`ranking.html`、`manage.html`、`room.html` を開きます。
+5. 参加者には `signin.html` と `ranking.html` を案内します。
+6. 運営スタッフは必要に応じて `manage.html`、`room.html` を直接開きます。
+7. スマホを持っていない参加者に運営端末でプロフィールだけ見せる場合は、独立ページの `lookup.html` を開きます。
 
 ## セキュリティ上の制約
 
-このサイトはGitHub Pagesなどの静的ホスティングで動くため、サーバー側の秘密情報を安全に保持できません。現在の管理者パスワード方式はFirestore上の値をブラウザで照合する簡易方式です。パスワードをJavaScriptへ直接書くより運用はしやすいですが、Firestore Rules上の強い管理者認可にはなりません。
+このサイトはGitHub Pagesなどの静的ホスティングで動くため、サーバー側の秘密情報を安全に保持できません。運営画面はFirebase AuthenticationとFirestore Security Rulesの `admin` custom claimで保護します。
 
-参加者側は画面上のログイン操作を省略するため、Firebase Anonymous Authを使用しています。Anonymous Authの認証状態はブラウザに保存され、あわせてユーザーIDを `localStorage` に保存します。端末やブラウザを変えると同じ参加者として扱えない場合があります。
+参加者側はパスワードを使わず、6文字の公開IDだけでログインします。IDを知っている人はその参加者の `profile.html` に入れるため、表示名変更も可能です。文化祭内の簡易本人確認として運用してください。
 
-`localStorage` だけでは本人確認を安全に行えません。この実装ではFirestore Rulesの本人判定にFirebase AuthのUIDを使っています。ただし、ランキングのために `users` は公開読み取り可能です。表示名と残高以外の個人情報は保存しないでください。
+`lookup.html` はnavを持たない独立ページで、6文字IDから表示名、現在資産、所属部屋だけを確認できます。訪問者に運営端末を触らせる想定のため、表示名変更や管理画面への導線は置いていません。
 
-部屋作成、部屋参加、資産操作はスタッフ画面のパスワードゲートに依存しています。より強い本人確認、管理者認可、監査が必要な場合は、Firebase Authenticationの管理者アカウント、custom claim、Cloud Functions、または独自サーバーの導入を検討してください。
+ログイン状態は `localStorage` の `hakuyosaiUserId` と `hakuyosaiPublicId` に保存します。端末やブラウザを変える場合は、`signin.html` で6文字IDを入力して入り直します。ランキングのために `users` は公開読み取り可能です。表示名と残高以外の個人情報は保存しないでください。
+
+部屋作成、部屋参加、資産操作は管理者claimに依存しています。より強い監査やサーバー側検証が必要な場合は、Cloud Functionsまたは独自サーバーの導入を検討してください。

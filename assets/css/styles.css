@@ -131,6 +131,14 @@ input {
   font: inherit;
 }
 
+.id-input {
+  min-height: 58px;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 input:focus {
   border-color: var(--primary);
   outline: 3px solid rgba(17, 100, 102, 0.16);
@@ -223,6 +231,52 @@ button:disabled {
 
 .balance-display {
   font-variant-numeric: tabular-nums;
+}
+
+.profile-balance {
+  font-size: 1.8rem;
+  line-height: 1.1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.room-status {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.room-status.is-active {
+  border-color: var(--primary);
+  background: #e9f7f5;
+}
+
+.room-status.is-empty {
+  border-color: #cbdce1;
+  background: #f4f8f9;
+}
+
+.room-status.is-error {
+  border-color: #f0b8b1;
+  background: var(--danger-bg);
+}
+
+.room-status-name {
+  margin: 0;
+  font-size: clamp(2.1rem, 9vw, 4rem);
+  line-height: 1.05;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.room-status-detail {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .help-text {
@@ -466,8 +520,12 @@ button:disabled {
 }
 
 @media (max-width: 680px) {
+  body {
+    font-size: 17px;
+  }
+
   .app-shell {
-    padding: 14px;
+    padding: 12px;
   }
 
   .topbar {
@@ -491,6 +549,38 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .panel {
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  input,
+  button {
+    min-height: 56px;
+  }
+
+  .current-name,
+  .balance-display,
+  .room-status-name {
+    font-size: 2.35rem;
+  }
+
+  .profile-balance,
+  .ranking-balance,
+  .member-balance {
+    font-size: 1.9rem;
+  }
+
+  .meta-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .qr-code {
+    width: 100%;
+    min-height: 240px;
+  }
+
   .room-actions,
   .member-header {
     align-items: stretch;
@@ -512,5 +602,24 @@ button:disabled {
   .ranking-balance {
     grid-column: 2;
     font-size: 1.55rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-title {
+    font-size: 1.25rem;
+  }
+
+  .nav-links {
+    grid-template-columns: 1fr;
+  }
+
+  .room-status-name,
+  .current-name {
+    font-size: 2rem;
+  }
+
+  .kiosk-shell {
+    padding-top: 8px;
   }
 }
