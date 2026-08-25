@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>運営管理 | 白楊祭カジノ</title>
+    <title>運営管理 | 柏葉祭カジノ</title>
     <link rel="stylesheet" href="assets/css/styles.css">
   </head>
   <body>
@@ -14,29 +14,37 @@
           <span class="brand-subtitle">参加者のゲーム内資産を管理します</span>
         </div>
         <nav class="nav-links" aria-label="ページ">
-          <a href="signin.html">参加者</a>
-          <a href="ranking.html">ランキング</a>
           <a href="manage.html">管理</a>
+          <a href="room.html">部屋</a>
         </nav>
       </header>
-
       <section id="adminLoginPanel" class="panel">
         <h2>管理者ログイン</h2>
+
         <form id="adminLoginForm" class="stack">
           <label class="field">
-            <span>管理者メールアドレス</span>
-            <input id="adminEmail" type="email" autocomplete="username" required>
-          </label>
-          <label class="field">
             <span>管理者パスワード</span>
-            <input id="adminPassword" type="password" autocomplete="current-password" required>
+            <input
+              id="adminPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            >
           </label>
-          <button id="adminLoginButton" type="submit">ログイン</button>
-          <p id="adminLoginMessage" class="message" hidden></p>
+
+          <button id="adminLoginButton" type="submit">
+            ログイン
+          </button>
+
+          <p
+            id="adminLoginMessage"
+            class="message"
+            hidden
+          ></p>
         </form>
       </section>
 
-      <section id="managePanel" class="hidden">
+      <section id="mainPanel" class="hidden">
         <div class="grid">
           <section class="panel">
             <h2>ユーザー検索</h2>

@@ -1,13 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+
 import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   query,
   orderBy,
   where,
@@ -17,26 +14,26 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+import { checkAdminPassword, showMessage } from "./secret.js";
+
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDoBskKHJxPUfnVz0rhinxHBm6VuZ6ndoQ",
+  authDomain: "hakuyosai-ae580.firebaseapp.com",
+  projectId: "hakuyosai-ae580",
+  storageBucket: "hakuyosai-ae580.firebasestorage.app",
+  messagingSenderId: "729750832138",
+  appId: "1:729750832138:web:7248b5bc281179e8ec4bf3"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 const adminLoginPanel = document.querySelector("#adminLoginPanel");
 const adminLoginForm = document.querySelector("#adminLoginForm");
-const adminEmail = document.querySelector("#adminEmail");
 const adminPassword = document.querySelector("#adminPassword");
 const adminLoginButton = document.querySelector("#adminLoginButton");
 const adminLoginMessage = document.querySelector("#adminLoginMessage");
-const managePanel = document.querySelector("#managePanel");
+const mainPanel = document.querySelector("#mainPanel");
 const searchInput = document.querySelector("#searchInput");
 const userList = document.querySelector("#userList");
 const userListMessage = document.querySelector("#userListMessage");
@@ -66,21 +63,6 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("ja-JP");
 }
 
-function showMessage(element, message, type = "info") {
-  element.textContent = message;
-  element.className = `message ${type}`;
-  element.hidden = !message;
-}
-
-async function requireAdminClaim() {
-  const user = auth.currentUser;
-  if (!user) {
-    return false;
-  }
-
-  const token = await user.getIdTokenResult(true);
-  return token.claims.admin === true;
-}
 
 function setProcessing(processing) {
   isProcessing = processing;
@@ -150,6 +132,43 @@ function renderSelectedUser() {
   selectedBalance.textContent = formatNumber(user.balance);
   setBalanceAmount.value = user.balance;
 }
+
+adminLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  showMessage(adminLoginMessage, "");
+  adminLoginButton.disabled = true;
+
+  try {
+    const password = adminPassword.value;
+
+    const isAdmin = await checkAdminPassword(db, password);
+
+    if (isAdmin) {
+      adminLoginPanel.classList.add("hidden");
+      mainPanel.classList.remove("hidden");
+
+      watchUsers();
+    } else {
+      
+      showMessage(
+        adminLoginMessage,
+        "パスワードが違います。",
+        "error"
+      );
+      return;
+    }
+
+  } catch (error) {
+    showMessage(
+      adminLoginMessage,
+      `ログインに失敗しました: ${error.message}`,
+      "error"
+    );
+  } finally {
+    adminLoginButton.disabled = false;
+  }
+});
 
 function watchUsers() {
   if (unsubscribeUsers) {
@@ -273,8 +292,7 @@ async function updateBalance({ type, amount = 0, targetBalance = null }) {
         balanceBefore: currentBalance,
         balanceAfter,
         type,
-        createdAt: serverTimestamp(),
-        adminUid: auth.currentUser.uid
+        createdAt: serverTimestamp()
       });
     });
 
@@ -287,29 +305,6 @@ async function updateBalance({ type, amount = 0, targetBalance = null }) {
   }
 }
 
-adminLoginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  showMessage(adminLoginMessage, "");
-  adminLoginButton.disabled = true;
-
-  try {
-    await signInWithEmailAndPassword(auth, adminEmail.value.trim(), adminPassword.value);
-    const isAdmin = await requireAdminClaim();
-    if (!isAdmin) {
-      await signOut(auth);
-      showMessage(adminLoginMessage, "このアカウントには管理者権限がありません。", "error");
-      return;
-    }
-
-    adminLoginPanel.classList.add("hidden");
-    managePanel.classList.remove("hidden");
-    watchUsers();
-  } catch (error) {
-    showMessage(adminLoginMessage, `管理者ログインに失敗しました: ${error.message}`, "error");
-  } finally {
-    adminLoginButton.disabled = false;
-  }
-});
 
 searchInput.addEventListener("input", renderUsers);
 
