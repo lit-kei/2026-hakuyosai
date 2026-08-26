@@ -16,6 +16,7 @@
         <nav class="nav-links" aria-label="ページ">
           <a href="room.html">部屋一覧</a>
           <a id="scanLink" href="room-scan.html">QR/ID追加</a>
+          <a id="displayLink" href="room-display.html">ディスプレイ</a>
           <a href="manage.html">管理</a>
         </nav>
       </header>
@@ -47,7 +48,10 @@
               <span class="label">部屋</span>
               <p id="roomNameDisplay" class="current-name"></p>
             </div>
-            <a id="scanButton" class="link-button primary-link" href="room-scan.html">QR/IDで参加者追加</a>
+            <div class="room-action-links">
+              <a id="displayButton" class="link-button" href="room-display.html">ディスプレイ表示</a>
+              <a id="scanButton" class="link-button primary-link" href="room-scan.html">QR/IDで参加者追加</a>
+            </div>
           </div>
           <p id="roomMessage" class="message" hidden></p>
         </section>

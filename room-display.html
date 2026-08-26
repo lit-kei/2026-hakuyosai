@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>部屋ディスプレイ | 柏葉祭カジノ</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+  </head>
+  <body class="display-page">
+    <main class="display-shell">
+      <header class="display-header">
+        <div>
+          <p class="display-kicker">ROOM DISPLAY</p>
+          <h1 id="roomTitle">部屋ディスプレイ</h1>
+        </div>
+        <div class="display-summary" aria-label="参加人数">
+          <span id="memberCount">0</span>
+          <small>参加中</small>
+        </div>
+      </header>
+
+      <p id="displayMessage" class="message info">参加者を読み込み中です。</p>
+      <section id="displayList" class="display-list" aria-label="部屋の参加者一覧"></section>
+    </main>
+
+    <script type="module" src="assets/js/room-display.js"></script>
+  </body>
+</html>

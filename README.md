@@ -12,6 +12,7 @@
 - `room.html`: 部屋の作成、部屋一覧
 - `room-detail.html?id={roomId}`: 個別部屋の参加者、残高、資産変更
 - `room-scan.html?id={roomId}`: 部屋専用のQRコード読み取り、公開ID手入力
+- `room-display.html?id={roomId}`: 部屋ごとの参加者、現在資産、この部屋で増えた額のディスプレイ表示
 
 ## Firebaseセットアップ
 
@@ -47,6 +48,8 @@ rooms/{roomId}
 roomMembers/{userId}
   roomId: string
   roomName: string
+  balanceAtJoin: number
+  roomDelta: number
   joinedAt: timestamp
   updatedAt: timestamp
 
@@ -66,6 +69,8 @@ transactions/{transactionId}
 `publicId` は大文字英字と数字からなる6文字のIDです。参加者は `signin.html` でこのIDを入力して `profile.html` に入れます。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
 
 `roomMembers/{userId}` は参加者の現在いる部屋を表します。同じ参加者を別の部屋に追加すると、このドキュメントが上書きされるため、所属は常に1部屋だけです。
+
+`room-display.html?id={roomId}` は `roomMembers` の `joinedAt` を使って入室順に並べます。表示する「この部屋で増えた額」は `roomDelta` です。`room-detail.html` の部屋内資産操作では、ユーザー残高、取引履歴、`roomDelta` を同じFirestore transactionで更新します。`manage.html` からの全体管理操作は特定の部屋の勝ち負けとしては扱わないため、`roomDelta` には反映しません。
 
 `balance` はマイナス値も許可します。ゲーム内の借金や後払い精算が必要な場合は、そのまま負の残高として記録できます。
 
@@ -99,7 +104,8 @@ await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
 - 一般参加者が作成できる初期残高は `INITIAL_BALANCE` と同じ値だけです。
 - 6文字IDログイン後のプロフィール更新のため、匿名認証済みクライアントが `users` を更新できる簡易運用にしています。
 - `publicIds` は6文字IDからユーザーを探すため公開読み取り可能です。
-- `rooms`、`roomMembers`、`transactions` は `admin: true` の管理者だけが読み書きできます。
+- `rooms`、`roomMembers` は部屋表示とプロフィール表示のため公開読み取り可能で、書き込みは `admin: true` の管理者だけです。
+- `transactions` は `admin: true` の管理者だけが読み書きできます。
 - ランキング表示のため、`users` は公開読み取り可能です。
 
 ## GitHub Pagesで公開する方法
@@ -111,6 +117,7 @@ await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
 5. 参加者には `signin.html` と `ranking.html` を案内します。
 6. 運営スタッフは必要に応じて `manage.html`、`room.html` を直接開きます。
 7. スマホを持っていない参加者に運営端末でプロフィールだけ見せる場合は、独立ページの `lookup.html` を開きます。
+8. 各部屋のディスプレイには `room-detail.html` から `ディスプレイ表示` を開き、必要に応じて全画面表示にします。
 
 ## セキュリティ上の制約
 

@@ -8,7 +8,7 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc,
+  runTransaction,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
@@ -130,26 +130,47 @@ async function addPublicIdToRoom(rawPublicId, targetMessage) {
   showMessage(targetMessage, "参加者を確認中です。", "info");
 
   try {
-    const publicIdSnapshot = await getDoc(doc(db, "publicIds", publicId));
-    if (!publicIdSnapshot.exists()) {
-      throw new Error("この公開IDの参加者が見つかりません。");
-    }
+    let joinedUser = null;
 
-    const userId = publicIdSnapshot.data().userId;
-    const userSnapshot = await getDoc(doc(db, "users", userId));
-    if (!userSnapshot.exists()) {
-      throw new Error("参加者データが見つかりません。");
-    }
+    await runTransaction(db, async (transaction) => {
+      const publicIdRef = doc(db, "publicIds", publicId);
+      const publicIdSnapshot = await transaction.get(publicIdRef);
+      if (!publicIdSnapshot.exists()) {
+        throw new Error("この公開IDの参加者が見つかりません。");
+      }
 
-    const user = userSnapshot.data();
-    await setDoc(doc(db, "roomMembers", userId), {
-      roomId,
-      roomName: room.name || "",
-      joinedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      const userId = publicIdSnapshot.data().userId;
+      const userRef = doc(db, "users", userId);
+      const memberRef = doc(db, "roomMembers", userId);
+      const userSnapshot = await transaction.get(userRef);
+      const memberSnapshot = await transaction.get(memberRef);
+      if (!userSnapshot.exists()) {
+        throw new Error("参加者データが見つかりません。");
+      }
+
+      const user = { id: userSnapshot.id, ...userSnapshot.data() };
+      const currentMembership = memberSnapshot.exists() ? memberSnapshot.data() : null;
+      joinedUser = user;
+
+      if (currentMembership?.roomId === roomId) {
+        transaction.update(memberRef, {
+          roomName: room.name || "",
+          updatedAt: serverTimestamp()
+        });
+        return;
+      }
+
+      transaction.set(memberRef, {
+        roomId,
+        roomName: room.name || "",
+        joinedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        balanceAtJoin: Number(user.balance || 0),
+        roomDelta: 0
+      });
     });
 
-    showMessage(targetMessage, `${user.displayName || "名前なし"} を ${room.name || "この部屋"} に追加しました。`, "success");
+    showMessage(targetMessage, `${joinedUser?.displayName || "名前なし"} を ${room.name || "この部屋"} に追加しました。`, "success");
     manualPublicId.value = "";
   } catch (error) {
     showMessage(targetMessage, `参加登録に失敗しました: ${error.message}`, "error");

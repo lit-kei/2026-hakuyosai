@@ -44,6 +44,8 @@ const roomNameDisplay = document.querySelector("#roomNameDisplay");
 const roomMessage = document.querySelector("#roomMessage");
 const scanButton = document.querySelector("#scanButton");
 const scanLink = document.querySelector("#scanLink");
+const displayButton = document.querySelector("#displayButton");
+const displayLink = document.querySelector("#displayLink");
 const memberMessage = document.querySelector("#memberMessage");
 const memberList = document.querySelector("#memberList");
 
@@ -125,6 +127,8 @@ async function loadRoom() {
   roomNameDisplay.textContent = room.name || "名前なしの部屋";
   scanButton.href = `room-scan.html?id=${encodeURIComponent(roomId)}`;
   scanLink.href = `room-scan.html?id=${encodeURIComponent(roomId)}`;
+  displayButton.href = `room-display.html?id=${encodeURIComponent(roomId)}`;
+  displayLink.href = `room-display.html?id=${encodeURIComponent(roomId)}`;
   return true;
 }
 
@@ -271,7 +275,9 @@ async function updateBalance(user, amount, type) {
     let actualBalanceAfter = nextBalance;
     await runTransaction(db, async (transaction) => {
       const userRef = doc(db, "users", user.id);
+      const memberRef = doc(db, "roomMembers", user.id);
       const userSnapshot = await transaction.get(userRef);
+      const memberSnapshot = await transaction.get(memberRef);
       if (!userSnapshot.exists()) {
         throw new Error("対象ユーザーが見つかりません。");
       }
@@ -287,6 +293,12 @@ async function updateBalance(user, amount, type) {
         balance: balanceAfter,
         updatedAt: serverTimestamp()
       });
+      if (memberSnapshot.exists() && memberSnapshot.data().roomId === roomId) {
+        transaction.update(memberRef, {
+          roomDelta: Number(memberSnapshot.data().roomDelta || 0) + amount,
+          updatedAt: serverTimestamp()
+        });
+      }
       transaction.set(doc(collection(db, "transactions")), {
         userId: user.id,
         amount,
