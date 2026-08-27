@@ -46,6 +46,8 @@ const renameButton = document.querySelector("#renameButton");
 const renameMessage = document.querySelector("#renameMessage");
 const profileNav = document.querySelector("#profileNav");
 const logoutButton = document.querySelector("#logoutButton");
+const qrLabel = document.querySelector("#qrLabel");
+const helpMessage = document.querySelector("#help-message");
 
 const params = new URLSearchParams(location.search);
 const isReception = params.get("reception") === "true";
@@ -53,6 +55,9 @@ const isReception = params.get("reception") === "true";
 if (isReception) {
   profileNav.classList.add("hidden");
   logoutButton.classList.remove("hidden");
+  qrCodeElement.classList.add("hidden");
+  qrLabel.classList.add("hidden");
+  helpMessage.textContent = "スマホを持っていない方は、公開IDを紙に記入し手元に保管してください。";
 }
 
 let currentUserId = localStorage.getItem(USER_ID_STORAGE_KEY) || "";
