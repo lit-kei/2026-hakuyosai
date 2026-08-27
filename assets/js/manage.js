@@ -123,21 +123,30 @@ function parseAmount(value, allowZero = false, allowNegative = false) {
 function getSelectedUser() {
   return users.find((user) => user.id === selectedUserId) || null;
 }
-
 function renderUsers() {
   const searchTerm = searchInput.value.trim().toLowerCase();
+
   const filteredUsers = users.filter((user) => {
     const name = (user.displayName || "").toLowerCase();
-    return name.includes(searchTerm) || user.id.toLowerCase().includes(searchTerm);
+    const userId = (user.id || "").toLowerCase();
+    const publicId = (user.publicId || "").toLowerCase();
+
+    return (
+      name.includes(searchTerm) ||
+      userId.includes(searchTerm) ||
+      publicId.includes(searchTerm)
+    );
   });
 
   userList.innerHTML = "";
+
   if (filteredUsers.length === 0) {
     showMessage(userListMessage, "該当するユーザーがいません。", "info");
     return;
   }
 
   userListMessage.hidden = true;
+
   filteredUsers.forEach((user) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -146,8 +155,10 @@ function renderUsers() {
 
     const name = document.createElement("strong");
     name.textContent = user.displayName || "名前なし";
+
     const detail = document.createElement("span");
-    detail.textContent = `${formatNumber(user.balance)} / ${user.id}`;
+    detail.textContent =
+  `${formatNumber(user.balance)} / ${user.publicId || "公開IDなし"}`;
 
     button.append(name, detail);
     userList.appendChild(button);
@@ -167,7 +178,7 @@ function renderSelectedUser() {
   }
 
   selectedName.textContent = user.displayName || "名前なし";
-  selectedId.textContent = user.id;
+  selectedId.textContent = user.publicId || user.id;
   selectedBalance.textContent = formatNumber(user.balance);
   setBalanceAmount.value = user.balance;
 }
