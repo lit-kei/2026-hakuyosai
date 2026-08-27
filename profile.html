@@ -13,10 +13,19 @@
           <h1 class="brand-title">プロフィール</h1>
           <span class="brand-subtitle">公開ID、QRコード、現在資産を確認できます</span>
         </div>
-        <nav class="nav-links" aria-label="ページ">
+
+        <nav id="profileNav" class="nav-links" aria-label="ページ">
           <a href="profile.html">プロフィール</a>
           <a href="ranking.html">ランキング</a>
         </nav>
+
+          <button
+          id="logoutButton"
+          class="button-danger hidden"
+          type="button"
+        >
+          ログアウト
+        </button>
       </header>
 
       <section id="loadingPanel" class="panel">

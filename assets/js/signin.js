@@ -40,6 +40,15 @@ const loginButton = document.querySelector("#loginButton");
 const createButton = document.querySelector("#createButton");
 const loginMessage = document.querySelector("#loginMessage");
 const createMessage = document.querySelector("#createMessage");
+const signinNav = document.querySelector("#signinNav");
+
+
+const params = new URLSearchParams(location.search);
+const isReception = params.get("reception") === "true";
+
+if (isReception) {
+  signinNav.hidden = true;
+}
 
 function normalizeDisplayName(value) {
   return value.trim().replace(/\s+/g, " ");
@@ -86,7 +95,9 @@ function saveLogin(userId, publicId) {
 }
 
 function goToProfile() {
-  location.href = "profile.html";
+  location.href = isReception
+    ? "profile.html?reception=true"
+    : "profile.html";
 }
 
 function generatePublicId() {

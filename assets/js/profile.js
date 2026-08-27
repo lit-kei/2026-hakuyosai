@@ -44,6 +44,16 @@ const renameForm = document.querySelector("#renameForm");
 const renameName = document.querySelector("#renameName");
 const renameButton = document.querySelector("#renameButton");
 const renameMessage = document.querySelector("#renameMessage");
+const profileNav = document.querySelector("#profileNav");
+const logoutButton = document.querySelector("#logoutButton");
+
+const params = new URLSearchParams(location.search);
+const isReception = params.get("reception") === "true";
+
+if (isReception) {
+  profileNav.hidden = true;
+  logoutButton.hidden = false;
+}
 
 let currentUserId = localStorage.getItem(USER_ID_STORAGE_KEY) || "";
 let unsubscribeUser = null;
@@ -284,7 +294,7 @@ window.addEventListener("pagehide", () => {
 
 startProfile();
 
-window.logout = async function () {
+async function logout() {
   try {
     if (unsubscribeUser) {
       unsubscribeUser();
@@ -301,9 +311,12 @@ window.logout = async function () {
     localStorage.removeItem(USER_ID_STORAGE_KEY);
     localStorage.removeItem(PUBLIC_ID_STORAGE_KEY);
 
-    console.log("ログアウトしました。");
-    location.href = "signin.html";
+    location.href = "signin.html?reception=true";
   } catch (error) {
     console.error("ログアウトに失敗しました:", error);
   }
-};
+}
+
+window.logout = logout;
+
+logoutButton.addEventListener("click", logout);
