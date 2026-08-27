@@ -47,7 +47,7 @@ const params = new URLSearchParams(location.search);
 const isReception = params.get("reception") === "true";
 
 if (isReception) {
-  signinNav.hidden = true;
+  signinNav.classList.add("hidden");
 }
 
 function normalizeDisplayName(value) {
