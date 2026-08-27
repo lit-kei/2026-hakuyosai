@@ -51,8 +51,8 @@ const params = new URLSearchParams(location.search);
 const isReception = params.get("reception") === "true";
 
 if (isReception) {
-  profileNav.hidden = true;
-  logoutButton.hidden = false;
+  profileNav.classList.add("hidden");
+  logoutButton.classList.remove("hidden");
 }
 
 let currentUserId = localStorage.getItem(USER_ID_STORAGE_KEY) || "";
