@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
-  signInAnonymously
+  signInAnonymously,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
@@ -282,3 +283,27 @@ window.addEventListener("pagehide", () => {
 });
 
 startProfile();
+
+window.logout = async function () {
+  try {
+    if (unsubscribeUser) {
+      unsubscribeUser();
+      unsubscribeUser = null;
+    }
+
+    if (unsubscribeRoomMember) {
+      unsubscribeRoomMember();
+      unsubscribeRoomMember = null;
+    }
+
+    await signOut(auth);
+
+    localStorage.removeItem(USER_ID_STORAGE_KEY);
+    localStorage.removeItem(PUBLIC_ID_STORAGE_KEY);
+
+    console.log("ログアウトしました。");
+    location.href = "signin.html";
+  } catch (error) {
+    console.error("ログアウトに失敗しました:", error);
+  }
+};
