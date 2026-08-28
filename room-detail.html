@@ -5,6 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>個別部屋管理 | 柏葉祭カジノ</title>
     <link rel="stylesheet" href="assets/css/styles.css">
+    <style>
+      .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+.batch-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#pendingCount {
+  font-size: 14px;
+  color: #666;
+  white-space: nowrap;
+}
+
+#saveBalancesButton {
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .section-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .batch-status {
+    justify-content: space-between;
+  }
+}
+    </style>
   </head>
   <body>
     <main class="app-shell">
@@ -55,10 +96,22 @@
           </div>
           <p id="roomMessage" class="message" hidden></p>
         </section>
-
         <section class="panel">
-          <h2>参加者</h2>
-          <p id="memberMessage" class="message info">参加者を読み込み中です。</p>
+          <div class="section-header">
+            <h2>参加者</h2>
+
+            <div class="batch-status">
+              <span id="pendingCount">変更なし</span>
+              <button id="saveBalancesButton" type="button" disabled>
+                収支を一括保存
+              </button>
+            </div>
+          </div>
+
+          <p id="memberMessage" class="message info">
+            参加者を読み込み中です。
+          </p>
+
           <div id="memberList" class="member-list"></div>
         </section>
       </section>

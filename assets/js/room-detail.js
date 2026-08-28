@@ -48,12 +48,30 @@ const displayButton = document.querySelector("#displayButton");
 const displayLink = document.querySelector("#displayLink");
 const memberMessage = document.querySelector("#memberMessage");
 const memberList = document.querySelector("#memberList");
+const pendingCount = document.querySelector("#pendingCount");
+const saveBalancesButton = document.querySelector("#saveBalancesButton");
 
 let room = null;
 let members = [];
 let unsubscribeMembers = null;
 let processingUserId = "";
 let adminAreaShown = false;
+const pendingDeltas = new Map();
+let isSavingBalances = false;
+
+function changePendingDelta(userId, amount) {
+  const current = pendingDeltas.get(userId) || 0;
+  const next = current + amount;
+
+  if (next === 0) {
+    pendingDeltas.delete(userId);
+  } else {
+    pendingDeltas.set(userId, next);
+  }
+
+  renderMembers();
+  updateBatchControls();
+}
 
 function showMessage(element, message, type = "info") {
   element.textContent = message;
@@ -152,90 +170,379 @@ function renderMembers() {
   memberList.innerHTML = "";
 
   if (members.length === 0) {
-    showMessage(memberMessage, "この部屋にはまだ参加者がいません。", "info");
+    showMessage(
+      memberMessage,
+      "この部屋にはまだ参加者がいません。",
+      "info"
+    );
     return;
   }
 
   memberMessage.hidden = true;
+
   members.forEach((member) => {
     const user = member.user;
+
     const item = document.createElement("article");
     item.className = "member-card";
 
+    // 上段
     const header = document.createElement("div");
     header.className = "member-header";
 
     const nameBlock = document.createElement("div");
+
     const name = document.createElement("strong");
-    name.textContent = user?.displayName || "参加者データなし";
+    name.textContent =
+      user?.displayName || "参加者データなし";
+
     const publicId = document.createElement("span");
-    publicId.textContent = user?.publicId ? `公開ID: ${user.publicId}` : "公開IDなし";
+    publicId.textContent = user?.publicId
+      ? `公開ID: ${user.publicId}`
+      : "公開IDなし";
+
     nameBlock.append(name, publicId);
+
+    // 残高と今回収支
+    const balanceArea = document.createElement("div");
+    balanceArea.className = "member-balance-area";
 
     const balance = document.createElement("p");
     balance.className = "member-balance";
-    balance.textContent = user ? formatNumber(user.balance) : "-";
-    header.append(nameBlock, balance);
+    balance.textContent = user
+      ? `${formatNumber(user.balance)}円`
+      : "-";
 
+    const delta = user
+      ? pendingDeltas.get(user.id) || 0
+      : 0;
+
+    const deltaDisplay = document.createElement("span");
+    deltaDisplay.className = "member-delta";
+
+    if (delta > 0) {
+      deltaDisplay.textContent =
+        `+${formatNumber(delta)}`;
+      deltaDisplay.classList.add("positive");
+    } else if (delta < 0) {
+      deltaDisplay.textContent =
+        formatNumber(delta);
+      deltaDisplay.classList.add("negative");
+    } else {
+      deltaDisplay.textContent = "±0";
+    }
+
+    balanceArea.append(balance, deltaDisplay);
+
+    header.append(nameBlock, balanceArea);
+
+    // ±100 / ±500
     const quickGrid = document.createElement("div");
-    quickGrid.className = "button-grid";
-    [100, 500, -100, -500].forEach((amount) => {
+    quickGrid.className = "balance-controls";
+
+    [-500, -100, 100, 500].forEach((amount) => {
       const button = document.createElement("button");
+
       button.type = "button";
-      button.className = amount < 0 ? "button-danger" : "";
-      button.textContent = `${amount > 0 ? "+" : ""}${amount}`;
-      button.disabled = !user || processingUserId === user.id;
-      button.addEventListener("click", () => updateBalance(user, amount, "room-quick"));
+      button.className = amount < 0
+        ? "balance-button balance-minus"
+        : "balance-button balance-plus";
+
+      button.textContent =
+        `${amount > 0 ? "+" : ""}${amount}`;
+
+      button.disabled =
+        !user || isSavingBalances;
+
+      button.addEventListener("click", () => {
+        changePendingDelta(user.id, amount);
+      });
+
       quickGrid.appendChild(button);
     });
 
-    const form = document.createElement("form");
-    form.className = "inline-form";
-    const input = document.createElement("input");
-    input.type = "number";
-    input.inputMode = "numeric";
-    input.min = "1";
-    input.step = "1";
-    input.placeholder = "金額";
-    input.disabled = !user || processingUserId === user?.id;
-    const addButton = document.createElement("button");
-    addButton.type = "submit";
-    addButton.name = "direction";
-    addButton.value = "add";
-    addButton.textContent = "追加";
-    addButton.disabled = !user || processingUserId === user?.id;
-    const subtractButton = document.createElement("button");
-    subtractButton.type = "submit";
-    subtractButton.name = "direction";
-    subtractButton.value = "subtract";
-    subtractButton.className = "button-danger";
-    subtractButton.textContent = "減少";
-    subtractButton.disabled = !user || processingUserId === user?.id;
-    form.append(input, addButton, subtractButton);
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const amount = parseAmount(input.value);
-      if (amount === null) {
-        showMessage(roomMessage, "金額は1以上の整数で入力してください。", "error");
-        return;
-      }
-      const signedAmount = event.submitter?.value === "subtract" ? -amount : amount;
-      updateBalance(user, signedAmount, signedAmount > 0 ? "room-add" : "room-subtract");
-      input.value = "";
+    // その人の変更だけリセット
+    const resetButton = document.createElement("button");
+    resetButton.type = "button";
+    resetButton.className = "button-secondary";
+    resetButton.textContent = "リセット";
+
+    resetButton.disabled =
+      !user ||
+      isSavingBalances ||
+      !pendingDeltas.has(user?.id);
+
+    resetButton.addEventListener("click", () => {
+      pendingDeltas.delete(user.id);
+
+      renderMembers();
+      updateBatchControls();
     });
 
+    // 退出
     const leaveButton = document.createElement("button");
     leaveButton.type = "button";
     leaveButton.className = "button-secondary";
     leaveButton.textContent = "退出";
-    leaveButton.disabled = !user || processingUserId === user?.id;
-    leaveButton.addEventListener("click", () => removeMember(user));
 
-    item.append(header, quickGrid, form, leaveButton);
+    leaveButton.disabled =
+      !user ||
+      isSavingBalances ||
+      processingUserId === user?.id;
+
+    leaveButton.addEventListener("click", () => {
+      removeMember(user);
+    });
+
+    const subActions = document.createElement("div");
+    subActions.className = "member-sub-actions";
+
+    subActions.append(
+      resetButton,
+      leaveButton
+    );
+
+    item.append(
+      header,
+      quickGrid,
+      subActions
+    );
+
     memberList.appendChild(item);
   });
 }
+function updateBatchControls() {
+  const count = pendingDeltas.size;
 
+  pendingCount.textContent =
+    count === 0
+      ? "変更なし"
+      : `未保存: ${count}人`;
+
+  saveBalancesButton.disabled =
+    count === 0 || isSavingBalances;
+}
+async function saveAllBalanceChanges() {
+  if (
+    isSavingBalances ||
+    pendingDeltas.size === 0
+  ) {
+    return;
+  }
+
+  const changes = [...pendingDeltas.entries()]
+    .map(([userId, amount]) => {
+      const member = members.find(
+        (member) =>
+          member.user?.id === userId
+      );
+
+      return {
+        user: member?.user,
+        amount
+      };
+    })
+    .filter(
+      ({ user, amount }) =>
+        user && amount !== 0
+    );
+
+  if (changes.length === 0) {
+    return;
+  }
+
+  const summary = changes
+    .map(({ user, amount }) => {
+      const sign = amount > 0 ? "+" : "";
+
+      return (
+        `${user.displayName || "名前なし"}: ` +
+        `${sign}${formatNumber(amount)}`
+      );
+    })
+    .join("\n");
+
+  const confirmed = window.confirm(
+    `以下の収支を反映します。\n\n` +
+    `${summary}\n\n` +
+    `実行しますか？`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  isSavingBalances = true;
+
+  renderMembers();
+  updateBatchControls();
+
+  showMessage(
+    roomMessage,
+    "資産を一括更新しています。",
+    "info"
+  );
+
+  try {
+    const results = [];
+
+    await runTransaction(
+      db,
+      async (transaction) => {
+        const records = [];
+
+        // 先に全データを読む
+        for (const change of changes) {
+          const userRef = doc(
+            db,
+            "users",
+            change.user.id
+          );
+
+          const memberRef = doc(
+            db,
+            "roomMembers",
+            change.user.id
+          );
+
+          const userSnapshot =
+            await transaction.get(userRef);
+
+          const memberSnapshot =
+            await transaction.get(memberRef);
+
+          if (!userSnapshot.exists()) {
+            throw new Error(
+              `${change.user.displayName} が見つかりません。`
+            );
+          }
+
+          records.push({
+            ...change,
+            userRef,
+            memberRef,
+            userSnapshot,
+            memberSnapshot
+          });
+        }
+
+        // そのあと全員分を書く
+        for (const record of records) {
+          const currentBalance = Number(
+            record.userSnapshot.data().balance || 0
+          );
+
+          const balanceAfter =
+            currentBalance + record.amount;
+
+          if (!Number.isInteger(balanceAfter)) {
+            throw new Error(
+              `${record.user.displayName} の残高が不正です。`
+            );
+          }
+
+          transaction.update(
+            record.userRef,
+            {
+              balance: balanceAfter,
+              updatedAt: serverTimestamp()
+            }
+          );
+
+          if (
+            record.memberSnapshot.exists() &&
+            record.memberSnapshot.data().roomId === roomId
+          ) {
+            transaction.update(
+              record.memberRef,
+              {
+                roomDelta:
+                  Number(
+                    record.memberSnapshot.data()
+                      .roomDelta || 0
+                  ) + record.amount,
+
+                updatedAt:
+                  serverTimestamp()
+              }
+            );
+          }
+
+          transaction.set(
+            doc(
+              collection(
+                db,
+                "transactions"
+              )
+            ),
+            {
+              userId: record.user.id,
+              amount: record.amount,
+
+              balanceBefore:
+                currentBalance,
+
+              balanceAfter,
+
+              type: "room-game",
+
+              roomId,
+
+              roomName:
+                room.name || "",
+
+              createdAt:
+                serverTimestamp()
+            }
+          );
+
+          results.push({
+            userId: record.user.id,
+            balanceAfter
+          });
+        }
+      }
+    );
+
+    pendingDeltas.clear();
+
+    members = members.map((member) => {
+      const result = results.find(
+        (result) =>
+          result.userId === member.user?.id
+      );
+
+      if (!result) {
+        return member;
+      }
+
+      return {
+        ...member,
+        user: {
+          ...member.user,
+          balance: result.balanceAfter
+        }
+      };
+    });
+
+    showMessage(
+      roomMessage,
+      `${results.length}人の資産を更新しました。`,
+      "success"
+    );
+  } catch (error) {
+    showMessage(
+      roomMessage,
+      `一括更新に失敗しました: ${error.message}`,
+      "error"
+    );
+  } finally {
+    isSavingBalances = false;
+
+    renderMembers();
+    updateBatchControls();
+  }
+}
 function watchMembers() {
   if (unsubscribeMembers) {
     unsubscribeMembers();
@@ -249,88 +556,6 @@ function watchMembers() {
   );
 }
 
-async function updateBalance(user, amount, type) {
-  if (!user || processingUserId) {
-    return;
-  }
-
-  const nextBalance = Number(user.balance || 0) + amount;
-  if (!Number.isInteger(nextBalance)) {
-    showMessage(roomMessage, "変更後の残高が不正です。", "error");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `${user.displayName || "名前なし"} の資産を\n\n${formatNumber(user.balance)} -> ${formatNumber(nextBalance)}\n\nに変更します。\n実行しますか？`
-  );
-  if (!confirmed) {
-    return;
-  }
-
-  processingUserId = user.id;
-  renderMembers();
-  showMessage(roomMessage, "処理中です。", "info");
-
-  try {
-    let actualBalanceAfter = nextBalance;
-    await runTransaction(db, async (transaction) => {
-      const userRef = doc(db, "users", user.id);
-      const memberRef = doc(db, "roomMembers", user.id);
-      const userSnapshot = await transaction.get(userRef);
-      const memberSnapshot = await transaction.get(memberRef);
-      if (!userSnapshot.exists()) {
-        throw new Error("対象ユーザーが見つかりません。");
-      }
-
-      const currentBalance = Number(userSnapshot.data().balance || 0);
-      const balanceAfter = currentBalance + amount;
-      if (!Number.isInteger(balanceAfter)) {
-        throw new Error("変更後の残高が不正です。");
-      }
-      actualBalanceAfter = balanceAfter;
-
-      transaction.update(userRef, {
-        balance: balanceAfter,
-        updatedAt: serverTimestamp()
-      });
-      if (memberSnapshot.exists() && memberSnapshot.data().roomId === roomId) {
-        transaction.update(memberRef, {
-          roomDelta: Number(memberSnapshot.data().roomDelta || 0) + amount,
-          updatedAt: serverTimestamp()
-        });
-      }
-      transaction.set(doc(collection(db, "transactions")), {
-        userId: user.id,
-        amount,
-        balanceBefore: currentBalance,
-        balanceAfter,
-        type,
-        roomId,
-        roomName: room.name || "",
-        createdAt: serverTimestamp()
-      });
-    });
-
-    members = members.map((member) => {
-      if (member.user?.id !== user.id) {
-        return member;
-      }
-      return {
-        ...member,
-        user: {
-          ...member.user,
-          balance: actualBalanceAfter
-        }
-      };
-    });
-    showMessage(roomMessage, "資産を変更しました。", "success");
-  } catch (error) {
-    showMessage(roomMessage, `資産変更に失敗しました: ${error.message}`, "error");
-  } finally {
-    processingUserId = "";
-    renderMembers();
-  }
-}
 
 async function removeMember(user) {
   if (!user || processingUserId) {
@@ -393,3 +618,7 @@ onAuthStateChanged(auth, async (user) => {
     showAdminLogin(`ログイン状態の確認に失敗しました: ${error.message}`);
   }
 });
+saveBalancesButton.addEventListener(
+  "click",
+  saveAllBalanceChanges
+);
