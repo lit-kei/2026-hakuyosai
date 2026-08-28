@@ -2,7 +2,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/fireba
 import {
   getAuth,
   signInAnonymously,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
@@ -250,21 +251,25 @@ createForm.addEventListener("submit", async (event) => {
   }
 
   createButton.disabled = true;
-  try {
-    const authUser = await ensureAnonymousUser();
-    const userSnapshot = await getDoc(doc(db, "users", authUser.uid));
-    if (userSnapshot.exists()) {
-      const publicId = userSnapshot.data().publicId || "";
-      saveLogin(authUser.uid, publicId);
-      goToProfile();
-      return;
-    }
 
-    const publicId = await createAccount(authUser.uid, validation.value);
+  try {
+    // 必ず新しいFirebase匿名ユーザーを作る
+    const authUser = await createNewAnonymousUser();
+
+    const publicId = await createAccount(
+      authUser.uid,
+      validation.value
+    );
+
     saveLogin(authUser.uid, publicId);
     goToProfile();
+
   } catch (error) {
-    showMessage(createMessage, `アカウント作成に失敗しました: ${error.message}`, "error");
+    showMessage(
+      createMessage,
+      `アカウント作成に失敗しました: ${error.message}`,
+      "error"
+    );
   } finally {
     createButton.disabled = false;
   }
@@ -272,3 +277,12 @@ createForm.addEventListener("submit", async (event) => {
 
 validateStoredLogin();
 
+
+async function createNewAnonymousUser() {
+  if (auth.currentUser) {
+    await signOut(auth);
+  }
+
+  const result = await signInAnonymously(auth);
+  return result.user;
+}
