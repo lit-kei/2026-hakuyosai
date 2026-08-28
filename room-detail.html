@@ -6,43 +6,224 @@
     <title>個別部屋管理 | 柏葉祭カジノ</title>
     <link rel="stylesheet" href="assets/css/styles.css">
     <style>
-      .section-header {
+
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .section-header h2 {
   margin: 0;
+  font-size: 1.15rem;
 }
 
 .batch-status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 #pendingCount {
-  font-size: 14px;
-  color: #666;
+  color: var(--muted);
+  font-size: 0.82rem;
   white-space: nowrap;
 }
 
 #saveBalancesButton {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
   white-space: nowrap;
 }
 
-@media (max-width: 600px) {
+
+/* 4人/1行 */
+.member-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+
+/* 1ユーザーのカード */
+.member-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+
+/* 名前・残高 */
+.member-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 5px;
+}
+
+.member-header > div:first-child {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.member-header strong {
+  overflow: hidden;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-header > div:first-child span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* 残高 + 今回収支 */
+.member-balance-area {
+  display: grid !important;
+  justify-items: end;
+  gap: 0 !important;
+}
+
+.member-balance {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.1;
+  font-weight: 900;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.member-delta {
+  font-size: 0.82rem !important;
+  line-height: 1.15;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.member-delta.positive {
+  color: var(--success) !important;
+}
+
+.member-delta.negative {
+  color: var(--danger) !important;
+}
+
+
+/* ±500 / ±100 */
+.balance-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.balance-button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 3px 2px;
+  border-radius: 5px;
+  font-size: 0.73rem;
+}
+
+
+/* プラス */
+.balance-plus {
+  background: var(--primary);
+  color: #fff;
+}
+
+.balance-plus:hover {
+  background: var(--primary-dark);
+}
+
+
+/* マイナスは赤 */
+.balance-minus {
+  background: var(--danger);
+  color: #fff;
+}
+
+.balance-minus:hover {
+  background: #8d2f27;
+}
+
+
+/* リセット・退出 */
+.member-sub-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+.member-sub-actions button {
+  min-height: 29px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+}
+
+
+/* タブレット */
+@media (max-width: 900px) {
+  .member-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* スマホ横幅 */
+@media (max-width: 680px) {
+  .member-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .section-header {
     align-items: stretch;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .batch-status {
     justify-content: space-between;
+  }
+
+  /*
+    styles.css側でモバイル時に
+    button { min-height: 56px }
+    になるため、この画面だけ再上書き
+  */
+  .balance-button {
+    min-height: 38px;
+  }
+
+  .member-sub-actions button {
+    min-height: 34px;
+  }
+
+  .member-balance {
+    font-size: 0.95rem;
+  }
+}
+
+
+/* 非常に狭い画面 */
+@media (max-width: 420px) {
+  .member-list {
+    grid-template-columns: 1fr;
   }
 }
     </style>
