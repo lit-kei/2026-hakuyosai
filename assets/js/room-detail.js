@@ -60,8 +60,8 @@ const pendingDeltas = new Map();
 let isSavingBalances = false;
 let draggedUserId = "";
 let memberOrder = [];
-let dropTargetUserId = "";
-let dropTargetPlacement = "";
+let activeDropTarget = null;
+let activePointerId = null;
 
 const MEMBER_ORDER_STORAGE_KEY = `hakuyosaiRoomMemberOrder:${roomId || "unknown"}`;
 
@@ -136,25 +136,61 @@ function moveDraggedMemberToEdge(edge) {
 }
 
 function clearDropIndicators() {
-  dropTargetUserId = "";
-  dropTargetPlacement = "";
+  activeDropTarget = null;
   document.querySelectorAll(".member-card.is-drop-before, .member-card.is-drop-after, .member-card.is-drag-over, .member-drop-zone.is-drop-active").forEach((card) => {
     card.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
     card.classList.remove("is-drop-active");
   });
 }
 
-function updateDropIndicator(item, event) {
+function updateDropIndicator(clientX, clientY) {
   clearDropIndicators();
-  if (!draggedUserId || draggedUserId === item.dataset.userId) {
+  if (!draggedUserId) {
     return;
   }
 
+  const target = document.elementFromPoint(clientX, clientY);
+  const dropZone = target?.closest(".member-drop-zone");
+  if (dropZone) {
+    dropZone.classList.add("is-drop-active");
+    activeDropTarget = {
+      type: "edge",
+      edge: dropZone.dataset.edge
+    };
+    return;
+  }
+
+  const item = target?.closest(".member-card");
+  if (!item || draggedUserId === item.dataset.userId) {
+    return;
+  }
   const rect = item.getBoundingClientRect();
-  const insertAfter = event.clientY > rect.top + rect.height / 2;
-  dropTargetUserId = item.dataset.userId;
-  dropTargetPlacement = insertAfter ? "after" : "before";
+  const insertAfter = clientY > rect.top + rect.height / 2;
+  activeDropTarget = {
+    type: "member",
+    targetUserId: item.dataset.userId,
+    insertAfter
+  };
   item.classList.add(insertAfter ? "is-drop-after" : "is-drop-before");
+}
+
+function finishPointerSort(shouldCommit) {
+  const dropTarget = activeDropTarget;
+  if (shouldCommit && draggedUserId && dropTarget) {
+    if (dropTarget.type === "edge") {
+      moveDraggedMemberToEdge(dropTarget.edge);
+    } else {
+      moveMemberOrder(dropTarget.targetUserId, dropTarget.insertAfter);
+    }
+  }
+
+  draggedUserId = "";
+  activePointerId = null;
+  memberList.classList.remove("is-sorting");
+  clearDropIndicators();
+  document.querySelectorAll(".member-card.is-dragging").forEach((card) => {
+    card.classList.remove("is-dragging");
+  });
 }
 
 function changePendingDelta(userId, amount) {
@@ -286,60 +322,52 @@ function renderMembers() {
 
     const item = document.createElement("article");
     item.className = "member-card";
-    item.draggable = Boolean(user) && !isSavingBalances && !processingUserId;
     item.dataset.userId = getMemberUserId(member);
 
-    item.addEventListener("dragstart", (event) => {
+    const dragHandle = document.createElement("button");
+    dragHandle.type = "button";
+    dragHandle.className = "member-drag-handle";
+    dragHandle.disabled = !user || isSavingBalances || Boolean(processingUserId);
+    dragHandle.addEventListener("pointerdown", (event) => {
       if (!user || isSavingBalances || processingUserId) {
-        event.preventDefault();
         return;
       }
 
+      event.preventDefault();
+      activePointerId = event.pointerId;
       draggedUserId = user.id;
       item.classList.add("is-dragging");
       memberList.classList.add("is-sorting");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", user.id);
+      dragHandle.setPointerCapture(event.pointerId);
+      updateDropIndicator(event.clientX, event.clientY);
     });
-
-    item.addEventListener("dragover", (event) => {
-      if (!draggedUserId || draggedUserId === item.dataset.userId) {
-        return;
-      }
-
-      event.preventDefault();
-      updateDropIndicator(item, event);
-      event.dataTransfer.dropEffect = "move";
-    });
-
-    item.addEventListener("dragleave", () => {
-      item.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
-    });
-
-    item.addEventListener("drop", (event) => {
-      event.preventDefault();
-      const insertAfter = dropTargetPlacement === "after";
-      moveMemberOrder(item.dataset.userId, insertAfter);
-      draggedUserId = "";
-      memberList.classList.remove("is-sorting");
-      clearDropIndicators();
-    });
-
-    item.addEventListener("dragend", () => {
-      draggedUserId = "";
-      memberList.classList.remove("is-sorting");
-      clearDropIndicators();
-      document.querySelectorAll(".member-card.is-dragging").forEach((card) => {
-        card.classList.remove("is-dragging");
-      });
-    });
-
-    const dragHandle = document.createElement("div");
-    dragHandle.className = "member-drag-handle";
     const dragGrip = document.createElement("span");
     dragGrip.className = "member-drag-grip";
     dragGrip.textContent = "⋮⋮";
     dragHandle.appendChild(dragGrip);
+
+    dragHandle.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== activePointerId || !draggedUserId) {
+        return;
+      }
+      event.preventDefault();
+      updateDropIndicator(event.clientX, event.clientY);
+    });
+
+    dragHandle.addEventListener("pointerup", (event) => {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+      event.preventDefault();
+      finishPointerSort(true);
+    });
+
+    dragHandle.addEventListener("pointercancel", (event) => {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+      finishPointerSort(false);
+    });
 
     // 上段
     const header = document.createElement("div");
@@ -474,29 +502,8 @@ function renderMembers() {
 function createDropZone(label, edge) {
   const zone = document.createElement("div");
   zone.className = "member-drop-zone";
+  zone.dataset.edge = edge;
   zone.textContent = label;
-
-  zone.addEventListener("dragover", (event) => {
-    if (!draggedUserId) {
-      return;
-    }
-    event.preventDefault();
-    clearDropIndicators();
-    zone.classList.add("is-drop-active");
-    event.dataTransfer.dropEffect = "move";
-  });
-
-  zone.addEventListener("dragleave", () => {
-    zone.classList.remove("is-drop-active");
-  });
-
-  zone.addEventListener("drop", (event) => {
-    event.preventDefault();
-    moveDraggedMemberToEdge(edge);
-    draggedUserId = "";
-    memberList.classList.remove("is-sorting");
-    clearDropIndicators();
-  });
 
   return zone;
 }

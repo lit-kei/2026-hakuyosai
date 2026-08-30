@@ -34,12 +34,12 @@ let allMembers = [];
 let sortMode = "join";
 let scrollAnimationId = 0;
 let scrollPauseTimer = 0;
-let isScrollPaused = false;
 let lastScrollFrameAt = 0;
 
 const shouldAutoScroll = new URLSearchParams(location.search).get("scroll") === "true";
 const SCROLL_SPEED_PX_PER_MS = 0.035;
 const BOTTOM_PAUSE_MS = 3500;
+const TOP_PAUSE_MS = 3000;
 
 function showMessage(message, type = "info") {
   displayMessage.textContent = message;
@@ -108,8 +108,15 @@ function stopAutoScroll() {
     clearTimeout(scrollPauseTimer);
     scrollPauseTimer = 0;
   }
-  isScrollPaused = false;
   lastScrollFrameAt = 0;
+}
+
+function scheduleAutoScrollStart(delayMs) {
+  scrollPauseTimer = window.setTimeout(() => {
+    scrollPauseTimer = 0;
+    lastScrollFrameAt = 0;
+    scrollAnimationId = requestAnimationFrame(runAutoScroll);
+  }, delayMs);
 }
 
 function runAutoScroll(frameAt) {
@@ -129,13 +136,10 @@ function runAutoScroll(frameAt) {
   displayScroller.scrollTop = nextY;
 
   if (nextY >= maxScroll - 1) {
-    isScrollPaused = true;
     scrollAnimationId = 0;
     scrollPauseTimer = window.setTimeout(() => {
       displayScroller.scrollTop = 0;
-      isScrollPaused = false;
-      lastScrollFrameAt = 0;
-      scrollAnimationId = requestAnimationFrame(runAutoScroll);
+      scheduleAutoScrollStart(TOP_PAUSE_MS);
     }, BOTTOM_PAUSE_MS);
     return;
   }
@@ -152,8 +156,8 @@ function restartAutoScroll() {
   displayScroller.scrollTop = 0;
   requestAnimationFrame(() => {
     const maxScroll = displayScroller.scrollHeight - displayScroller.clientHeight;
-    if (maxScroll > 24 && !isScrollPaused) {
-      scrollAnimationId = requestAnimationFrame(runAutoScroll);
+    if (maxScroll > 24) {
+      scheduleAutoScrollStart(TOP_PAUSE_MS);
     }
   });
 }

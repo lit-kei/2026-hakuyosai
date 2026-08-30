@@ -128,12 +128,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px dashed var(--line);
+  border-radius: 5px;
+  background: #f7faf9;
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1.1;
   cursor: grab;
+  touch-action: none;
   user-select: none;
+}
+
+.member-drag-handle:hover {
+  border-color: var(--primary);
+  background: #edf7f6;
+  color: var(--primary-dark);
+}
+
+.member-drag-handle:active {
+  cursor: grabbing;
 }
 
 .member-drag-handle::before {
@@ -146,7 +162,7 @@
   letter-spacing: 0.12em;
 }
 
-.member-card[draggable="false"] .member-drag-handle {
+.member-drag-handle:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
