@@ -1,10 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getAuth,
-  signInAnonymously,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
   getFirestore,
   doc,
   getDoc,
@@ -27,7 +22,6 @@ const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
 const PUBLIC_ID_STORAGE_KEY = "hakuyosaiPublicId";
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 const loadingPanel = document.querySelector("#loadingPanel");
@@ -96,12 +90,6 @@ function generatePublicId() {
     code += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return code;
-}
-
-async function ensureAnonymousUser() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
 }
 
 function redirectToSignin() {
@@ -224,7 +212,6 @@ async function startProfile() {
   }
 
   try {
-    await ensureAnonymousUser();
     const userRef = doc(db, "users", currentUserId);
     const snapshot = await getDoc(userRef);
     if (!snapshot.exists()) {
@@ -275,7 +262,6 @@ renameForm.addEventListener("submit", async (event) => {
 
   renameButton.disabled = true;
   try {
-    await ensureAnonymousUser();
     await updateDoc(doc(db, "users", currentUserId), {
       displayName: validation.value,
       updatedAt: serverTimestamp()
@@ -310,8 +296,6 @@ async function logout() {
       unsubscribeRoomMember();
       unsubscribeRoomMember = null;
     }
-
-    await signOut(auth);
 
     localStorage.removeItem(USER_ID_STORAGE_KEY);
     localStorage.removeItem(PUBLIC_ID_STORAGE_KEY);

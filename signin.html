@@ -48,7 +48,13 @@
       </section>
     </main>
 
+    <div id="busyOverlay" class="busy-overlay hidden" role="status" aria-live="polite" aria-busy="true">
+      <div class="busy-card">
+        <div class="busy-spinner" aria-hidden="true"></div>
+        <p id="busyText">処理中です。</p>
+      </div>
+    </div>
+
     <script type="module" src="assets/js/signin.js"></script>
   </body>
 </html>
-

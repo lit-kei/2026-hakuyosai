@@ -17,6 +17,22 @@ service cloud.firestore {
     }
 
     function isParticipantCreate(userId) {
+      return request.resource.data.keys().hasOnly([
+          "displayName",
+          "balance",
+          "publicId",
+          "createdAt",
+          "updatedAt"
+        ])
+        && validDisplayName(request.resource.data.displayName)
+        && request.resource.data.balance == 1000
+        && request.resource.data.publicId is string
+        && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function isOwnerProfileUpdate(userId) {
       return signedIn()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly([
@@ -51,8 +67,7 @@ service cloud.firestore {
     }
 
     function isPublicProfileUpdate() {
-      return signedIn()
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "displayName",
           "publicId",
           "updatedAt"
@@ -67,16 +82,17 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if true;
-      allow create: if isAdmin() || isParticipantCreate(userId);
+      allow create: if isAdmin() || isParticipantCreate(userId) || isOwnerProfileUpdate(userId);
       allow update: if isAdmin() || isParticipantProfileUpdate(userId) || isPublicProfileUpdate();
       allow delete: if isAdmin();
     }
 
     match /publicIds/{publicId} {
       allow read: if true;
-      allow create: if signedIn()
-        && publicId.matches("^[A-Z0-9]{6}$")
-        && request.resource.data.userId is string;
+      allow create: if publicId.matches("^[A-Z0-9]{6}$")
+        && request.resource.data.keys().hasOnly(["userId", "createdAt"])
+        && request.resource.data.userId is string
+        && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }
 

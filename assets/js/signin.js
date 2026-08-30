@@ -1,12 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getAuth,
-  signInAnonymously,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
   getFirestore,
+  collection,
   doc,
   getDoc,
   runTransaction,
@@ -27,7 +22,6 @@ const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
 const PUBLIC_ID_STORAGE_KEY = "hakuyosaiPublicId";
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
 const loadingPanel = document.querySelector("#loadingPanel");
@@ -42,7 +36,8 @@ const createButton = document.querySelector("#createButton");
 const loginMessage = document.querySelector("#loginMessage");
 const createMessage = document.querySelector("#createMessage");
 const signinNav = document.querySelector("#signinNav");
-
+const busyOverlay = document.querySelector("#busyOverlay");
+const busyText = document.querySelector("#busyText");
 
 const params = new URLSearchParams(location.search);
 const isReception = params.get("reception") === "true";
@@ -84,6 +79,15 @@ function showMessage(element, message, type = "info") {
   element.hidden = !message;
 }
 
+function setBusy(isBusy, message = "処理中です。") {
+  busyText.textContent = message;
+  busyOverlay.classList.toggle("hidden", !isBusy);
+  loginButton.disabled = isBusy;
+  createButton.disabled = isBusy;
+  loginPublicId.disabled = isBusy;
+  createName.disabled = isBusy;
+}
+
 function showEntryPanels() {
   loadingPanel.classList.add("hidden");
   loginPanel.classList.remove("hidden");
@@ -108,29 +112,6 @@ function generatePublicId() {
     code += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return code;
-}
-
-async function ensureAnonymousUser() {
-  if (auth.currentUser) {
-    return auth.currentUser;
-  }
-
-  return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      unsubscribe();
-      if (user) {
-        resolve(user);
-        return;
-      }
-
-      try {
-        const result = await signInAnonymously(auth);
-        resolve(result.user);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
 }
 
 async function validateStoredLogin() {
@@ -160,20 +141,17 @@ async function validateStoredLogin() {
   }
 }
 
-async function createAccount(userId, displayName) {
-  const userRef = doc(db, "users", userId);
-
+async function createAccount(displayName) {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const publicId = generatePublicId();
+    const userRef = doc(collection(db, "users"));
+    const userId = userRef.id;
+
     try {
       await runTransaction(db, async (transaction) => {
-        const userSnapshot = await transaction.get(userRef);
         const publicIdRef = doc(db, "publicIds", publicId);
         const publicIdSnapshot = await transaction.get(publicIdRef);
 
-        if (userSnapshot.exists()) {
-          throw new Error("この端末ではすでにアカウントが作成されています。");
-        }
         if (publicIdSnapshot.exists()) {
           throw new Error("PUBLIC_ID_EXISTS");
         }
@@ -191,7 +169,7 @@ async function createAccount(userId, displayName) {
         });
       });
 
-      return publicId;
+      return { userId, publicId };
     } catch (error) {
       if (error.message !== "PUBLIC_ID_EXISTS") {
         throw error;
@@ -216,7 +194,8 @@ loginForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  loginButton.disabled = true;
+  let navigating = false;
+  setBusy(true, "ログインしています。");
   try {
     const publicIdSnapshot = await getDoc(doc(db, "publicIds", validation.value));
     if (!publicIdSnapshot.exists()) {
@@ -232,11 +211,14 @@ loginForm.addEventListener("submit", async (event) => {
     }
 
     saveLogin(userId, validation.value);
+    navigating = true;
     goToProfile();
   } catch (error) {
     showMessage(loginMessage, `ログインに失敗しました: ${error.message}`, "error");
   } finally {
-    loginButton.disabled = false;
+    if (!navigating) {
+      setBusy(false);
+    }
   }
 });
 
@@ -250,18 +232,14 @@ createForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  createButton.disabled = true;
+  let navigating = false;
+  setBusy(true, "アカウントを作成しています。");
 
   try {
-    // 必ず新しいFirebase匿名ユーザーを作る
-    const authUser = await createNewAnonymousUser();
+    const account = await createAccount(validation.value);
 
-    const publicId = await createAccount(
-      authUser.uid,
-      validation.value
-    );
-
-    saveLogin(authUser.uid, publicId);
+    saveLogin(account.userId, account.publicId);
+    navigating = true;
     goToProfile();
 
   } catch (error) {
@@ -271,18 +249,10 @@ createForm.addEventListener("submit", async (event) => {
       "error"
     );
   } finally {
-    createButton.disabled = false;
+    if (!navigating) {
+      setBusy(false);
+    }
   }
 });
 
 validateStoredLogin();
-
-
-async function createNewAnonymousUser() {
-  if (auth.currentUser) {
-    await signOut(auth);
-  }
-
-  const result = await signInAnonymously(auth);
-  return result.user;
-}

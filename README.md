@@ -19,9 +19,7 @@
 1. Firebase Consoleでプロジェクトを作成します。
 2. Webアプリを追加し、Firebase configを取得します。
 3. `assets/js/*.js` の先頭にある `firebaseConfig` を自分のプロジェクトの値に変更します。
-4. Authenticationで以下を有効化します。
-   - Anonymous
-   - Email/Password
+4. AuthenticationでEmail/Passwordを有効化します。
 5. Firestore Databaseを作成します。
 6. `firestore.rules` の内容をFirestore Security Rulesへ設定します。
 
@@ -64,7 +62,7 @@ transactions/{transactionId}
   createdAt: timestamp
 ```
 
-`users/{userId}` は新規作成時のFirebase Anonymous AuthのUIDを使用します。端末側にも `localStorage` の `hakuyosaiUserId` と `hakuyosaiPublicId` として保存しています。
+`users/{userId}` はFirestoreの自動生成ドキュメントIDを使用します。端末側にも `localStorage` の `hakuyosaiUserId` と `hakuyosaiPublicId` として保存しています。
 
 `publicId` は大文字英字と数字からなる6文字のIDです。参加者は `signin.html` でこのIDを入力して `profile.html` に入れます。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
 
@@ -100,9 +98,9 @@ await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
 
 このリポジトリの `firestore.rules` をFirebase Consoleに反映してください。主な方針は以下です。
 
-- 一般参加者は自分の `users/{uid}` だけ作成できます。
+- 一般参加者は `signin.html` から参加者データを作成できます。
 - 一般参加者が作成できる初期残高は `INITIAL_BALANCE` と同じ値だけです。
-- 6文字IDログイン後のプロフィール更新のため、匿名認証済みクライアントが `users` を更新できる簡易運用にしています。
+- 6文字IDログイン後のプロフィール更新のため、クライアントが `users` の表示名と公開IDだけを更新できる簡易運用にしています。
 - `publicIds` は6文字IDからユーザーを探すため公開読み取り可能です。
 - `rooms`、`roomMembers` は部屋表示とプロフィール表示のため公開読み取り可能で、書き込みは `admin: true` の管理者だけです。
 - `transactions` は `admin: true` の管理者だけが読み書きできます。
@@ -123,7 +121,7 @@ await admin.auth().setCustomUserClaims("ADMIN_USER_UID", { admin: true });
 
 このサイトはGitHub Pagesなどの静的ホスティングで動くため、サーバー側の秘密情報を安全に保持できません。運営画面はFirebase AuthenticationとFirestore Security Rulesの `admin` custom claimで保護します。
 
-参加者側はパスワードを使わず、6文字の公開IDだけでログインします。IDを知っている人はその参加者の `profile.html` に入れるため、表示名変更も可能です。文化祭内の簡易本人確認として運用してください。
+参加者側はFirebase Authenticationを使わず、6文字の公開IDだけでログインします。IDを知っている人はその参加者の `profile.html` に入れるため、表示名変更も可能です。文化祭内の簡易本人確認として運用してください。
 
 `lookup.html` はnavを持たない独立ページで、6文字IDから表示名、現在資産、所属部屋だけを確認できます。訪問者に運営端末を触らせる想定のため、表示名変更や管理画面への導線は置いていません。
 
