@@ -58,6 +58,62 @@ let processingUserId = "";
 let adminAreaShown = false;
 const pendingDeltas = new Map();
 let isSavingBalances = false;
+let draggedUserId = "";
+let memberOrder = [];
+
+const MEMBER_ORDER_STORAGE_KEY = `hakuyosaiRoomMemberOrder:${roomId || "unknown"}`;
+
+function loadMemberOrder() {
+  try {
+    const storedOrder = JSON.parse(localStorage.getItem(MEMBER_ORDER_STORAGE_KEY) || "[]");
+    return Array.isArray(storedOrder) ? storedOrder.filter((userId) => typeof userId === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMemberOrder() {
+  try {
+    localStorage.setItem(MEMBER_ORDER_STORAGE_KEY, JSON.stringify(memberOrder));
+  } catch {
+    // localStorageが使えない環境では、その表示中だけの並び順にします。
+  }
+}
+
+function getMemberUserId(member) {
+  return member.user?.id || member.memberId;
+}
+
+function applyMemberOrder(nextMembers) {
+  const existingIds = new Set(nextMembers.map(getMemberUserId));
+  const cleanedOrder = memberOrder.filter((userId) => existingIds.has(userId));
+  const newIds = nextMembers.map(getMemberUserId).filter((userId) => !cleanedOrder.includes(userId));
+  memberOrder = [...cleanedOrder, ...newIds];
+  saveMemberOrder();
+
+  const orderIndex = new Map(memberOrder.map((userId, index) => [userId, index]));
+  return [...nextMembers].sort((a, b) => {
+    return (orderIndex.get(getMemberUserId(a)) ?? 9999) - (orderIndex.get(getMemberUserId(b)) ?? 9999);
+  });
+}
+
+function moveMemberOrder(targetUserId, insertAfter = false) {
+  if (!draggedUserId || draggedUserId === targetUserId) {
+    return;
+  }
+
+  const nextOrder = memberOrder.filter((userId) => userId !== draggedUserId);
+  const targetIndex = nextOrder.indexOf(targetUserId);
+  if (targetIndex === -1) {
+    return;
+  }
+
+  nextOrder.splice(targetIndex + (insertAfter ? 1 : 0), 0, draggedUserId);
+  memberOrder = nextOrder;
+  saveMemberOrder();
+  members = applyMemberOrder(members);
+  renderMembers();
+}
 
 function changePendingDelta(userId, amount) {
   const current = pendingDeltas.get(userId) || 0;
@@ -162,7 +218,7 @@ async function hydrateMembers(memberSnapshots) {
     })
   );
 
-  members = nextMembers;
+  members = applyMemberOrder(nextMembers);
   renderMembers();
 }
 
@@ -185,6 +241,56 @@ function renderMembers() {
 
     const item = document.createElement("article");
     item.className = "member-card";
+    item.draggable = Boolean(user) && !isSavingBalances && !processingUserId;
+    item.dataset.userId = getMemberUserId(member);
+
+    item.addEventListener("dragstart", (event) => {
+      if (!user || isSavingBalances || processingUserId) {
+        event.preventDefault();
+        return;
+      }
+
+      draggedUserId = user.id;
+      item.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", user.id);
+    });
+
+    item.addEventListener("dragover", (event) => {
+      if (!draggedUserId || draggedUserId === item.dataset.userId) {
+        return;
+      }
+
+      event.preventDefault();
+      item.classList.add("is-drag-over");
+      event.dataTransfer.dropEffect = "move";
+    });
+
+    item.addEventListener("dragleave", () => {
+      item.classList.remove("is-drag-over");
+    });
+
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      item.classList.remove("is-drag-over");
+      const rect = item.getBoundingClientRect();
+      const insertAfter = event.clientY > rect.top + rect.height / 2;
+      moveMemberOrder(item.dataset.userId, insertAfter);
+    });
+
+    item.addEventListener("dragend", () => {
+      draggedUserId = "";
+      document.querySelectorAll(".member-card.is-drag-over, .member-card.is-dragging").forEach((card) => {
+        card.classList.remove("is-drag-over", "is-dragging");
+      });
+    });
+
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "member-drag-handle";
+    const dragGrip = document.createElement("span");
+    dragGrip.className = "member-drag-grip";
+    dragGrip.textContent = "⋮⋮";
+    dragHandle.appendChild(dragGrip);
 
     // 上段
     const header = document.createElement("div");
@@ -303,6 +409,7 @@ function renderMembers() {
     );
 
     item.append(
+      dragHandle,
       header,
       quickGrid,
       subActions
@@ -622,3 +729,5 @@ saveBalancesButton.addEventListener(
   "click",
   saveAllBalanceChanges
 );
+
+memberOrder = loadMemberOrder();

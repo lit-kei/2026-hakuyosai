@@ -26,8 +26,19 @@ const roomTitle = document.querySelector("#roomTitle");
 const memberCount = document.querySelector("#memberCount");
 const displayMessage = document.querySelector("#displayMessage");
 const displayList = document.querySelector("#displayList");
+const sortButtons = document.querySelectorAll("[data-sort]");
 
 let renderRequestId = 0;
+let allMembers = [];
+let sortMode = "join";
+let scrollAnimationId = 0;
+let scrollPauseTimer = 0;
+let isScrollPaused = false;
+let lastScrollFrameAt = 0;
+
+const shouldAutoScroll = new URLSearchParams(location.search).get("scroll") === "true";
+const SCROLL_SPEED_PX_PER_MS = 0.035;
+const BOTTOM_PAUSE_MS = 3500;
 
 function showMessage(message, type = "info") {
   displayMessage.textContent = message;
@@ -51,7 +62,103 @@ function toMillis(timestamp) {
   return 0;
 }
 
+function compareJoinedAt(a, b) {
+  const joinedDiff = toMillis(a.membership.joinedAt) - toMillis(b.membership.joinedAt);
+  return joinedDiff || a.user?.id?.localeCompare(b.user?.id || "") || 0;
+}
+
+function sortMembers(members) {
+  const sortedMembers = [...members];
+
+  if (sortMode === "balance") {
+    sortedMembers.sort((a, b) => {
+      const balanceDiff = Number(b.user?.balance || 0) - Number(a.user?.balance || 0);
+      return balanceDiff || compareJoinedAt(a, b);
+    });
+    return sortedMembers;
+  }
+
+  if (sortMode === "delta") {
+    sortedMembers.sort((a, b) => {
+      const deltaDiff = Number(b.membership.roomDelta || 0) - Number(a.membership.roomDelta || 0);
+      return deltaDiff || compareJoinedAt(a, b);
+    });
+    return sortedMembers;
+  }
+
+  sortedMembers.sort(compareJoinedAt);
+  return sortedMembers;
+}
+
+function updateSortButtons() {
+  sortButtons.forEach((button) => {
+    const isActive = button.dataset.sort === sortMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function stopAutoScroll() {
+  if (scrollAnimationId) {
+    cancelAnimationFrame(scrollAnimationId);
+    scrollAnimationId = 0;
+  }
+  if (scrollPauseTimer) {
+    clearTimeout(scrollPauseTimer);
+    scrollPauseTimer = 0;
+  }
+  isScrollPaused = false;
+  lastScrollFrameAt = 0;
+}
+
+function runAutoScroll(frameAt) {
+  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  if (!shouldAutoScroll || maxScroll <= 24) {
+    scrollAnimationId = 0;
+    return;
+  }
+
+  if (!lastScrollFrameAt) {
+    lastScrollFrameAt = frameAt;
+  }
+
+  const elapsed = frameAt - lastScrollFrameAt;
+  lastScrollFrameAt = frameAt;
+  const nextY = Math.min(maxScroll, window.scrollY + elapsed * SCROLL_SPEED_PX_PER_MS);
+  window.scrollTo(0, nextY);
+
+  if (nextY >= maxScroll - 1) {
+    isScrollPaused = true;
+    scrollAnimationId = 0;
+    scrollPauseTimer = window.setTimeout(() => {
+      window.scrollTo(0, 0);
+      isScrollPaused = false;
+      lastScrollFrameAt = 0;
+      scrollAnimationId = requestAnimationFrame(runAutoScroll);
+    }, BOTTOM_PAUSE_MS);
+    return;
+  }
+
+  scrollAnimationId = requestAnimationFrame(runAutoScroll);
+}
+
+function restartAutoScroll() {
+  stopAutoScroll();
+  if (!shouldAutoScroll) {
+    return;
+  }
+
+  window.scrollTo(0, 0);
+  requestAnimationFrame(() => {
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    if (maxScroll > 24 && !isScrollPaused) {
+      scrollAnimationId = requestAnimationFrame(runAutoScroll);
+    }
+  });
+}
+
 function renderRows(members) {
+  stopAutoScroll();
   displayList.innerHTML = "";
   memberCount.textContent = String(members.length);
 
@@ -97,17 +204,19 @@ function renderRows(members) {
     row.append(number, name, balance, delta);
     displayList.appendChild(row);
   });
+
+  restartAutoScroll();
 }
 
 async function renderMembers(memberSnapshots) {
   const requestId = ++renderRequestId;
-  const sortedSnapshots = [...memberSnapshots].sort((a, b) => {
+  const joinedSnapshots = [...memberSnapshots].sort((a, b) => {
     const joinedDiff = toMillis(a.data().joinedAt) - toMillis(b.data().joinedAt);
     return joinedDiff || a.id.localeCompare(b.id);
   });
 
   const members = await Promise.all(
-    sortedSnapshots.map(async (memberSnapshot) => {
+    joinedSnapshots.map(async (memberSnapshot) => {
       const userSnapshot = await getDoc(doc(db, "users", memberSnapshot.id));
       return {
         membership: memberSnapshot.data(),
@@ -119,8 +228,26 @@ async function renderMembers(memberSnapshots) {
   if (requestId !== renderRequestId) {
     return;
   }
-  renderRows(members);
+  allMembers = members;
+  renderRows(sortMembers(allMembers));
 }
+
+sortButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const nextSortMode = button.dataset.sort;
+    if (!["join", "balance", "delta"].includes(nextSortMode)) {
+      return;
+    }
+
+    sortMode = nextSortMode;
+    updateSortButtons();
+    renderRows(sortMembers(allMembers));
+  });
+});
+
+window.addEventListener("resize", () => {
+  restartAutoScroll();
+});
 
 async function init() {
   if (!roomId) {
@@ -149,4 +276,5 @@ async function init() {
   }
 }
 
+updateSortButtons();
 init();
