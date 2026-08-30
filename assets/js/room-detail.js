@@ -60,6 +60,8 @@ const pendingDeltas = new Map();
 let isSavingBalances = false;
 let draggedUserId = "";
 let memberOrder = [];
+let dropTargetUserId = "";
+let dropTargetPlacement = "";
 
 const MEMBER_ORDER_STORAGE_KEY = `hakuyosaiRoomMemberOrder:${roomId || "unknown"}`;
 
@@ -113,6 +115,46 @@ function moveMemberOrder(targetUserId, insertAfter = false) {
   saveMemberOrder();
   members = applyMemberOrder(members);
   renderMembers();
+}
+
+function moveDraggedMemberToEdge(edge) {
+  if (!draggedUserId) {
+    return;
+  }
+
+  const nextOrder = memberOrder.filter((userId) => userId !== draggedUserId);
+  if (edge === "end") {
+    nextOrder.push(draggedUserId);
+  } else {
+    nextOrder.unshift(draggedUserId);
+  }
+
+  memberOrder = nextOrder;
+  saveMemberOrder();
+  members = applyMemberOrder(members);
+  renderMembers();
+}
+
+function clearDropIndicators() {
+  dropTargetUserId = "";
+  dropTargetPlacement = "";
+  document.querySelectorAll(".member-card.is-drop-before, .member-card.is-drop-after, .member-card.is-drag-over, .member-drop-zone.is-drop-active").forEach((card) => {
+    card.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
+    card.classList.remove("is-drop-active");
+  });
+}
+
+function updateDropIndicator(item, event) {
+  clearDropIndicators();
+  if (!draggedUserId || draggedUserId === item.dataset.userId) {
+    return;
+  }
+
+  const rect = item.getBoundingClientRect();
+  const insertAfter = event.clientY > rect.top + rect.height / 2;
+  dropTargetUserId = item.dataset.userId;
+  dropTargetPlacement = insertAfter ? "after" : "before";
+  item.classList.add(insertAfter ? "is-drop-after" : "is-drop-before");
 }
 
 function changePendingDelta(userId, amount) {
@@ -236,6 +278,9 @@ function renderMembers() {
 
   memberMessage.hidden = true;
 
+  const topDropZone = createDropZone("先頭に入れる", "start");
+  memberList.appendChild(topDropZone);
+
   members.forEach((member) => {
     const user = member.user;
 
@@ -252,6 +297,7 @@ function renderMembers() {
 
       draggedUserId = user.id;
       item.classList.add("is-dragging");
+      memberList.classList.add("is-sorting");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", user.id);
     });
@@ -262,26 +308,29 @@ function renderMembers() {
       }
 
       event.preventDefault();
-      item.classList.add("is-drag-over");
+      updateDropIndicator(item, event);
       event.dataTransfer.dropEffect = "move";
     });
 
     item.addEventListener("dragleave", () => {
-      item.classList.remove("is-drag-over");
+      item.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
     });
 
     item.addEventListener("drop", (event) => {
       event.preventDefault();
-      item.classList.remove("is-drag-over");
-      const rect = item.getBoundingClientRect();
-      const insertAfter = event.clientY > rect.top + rect.height / 2;
+      const insertAfter = dropTargetPlacement === "after";
       moveMemberOrder(item.dataset.userId, insertAfter);
+      draggedUserId = "";
+      memberList.classList.remove("is-sorting");
+      clearDropIndicators();
     });
 
     item.addEventListener("dragend", () => {
       draggedUserId = "";
-      document.querySelectorAll(".member-card.is-drag-over, .member-card.is-dragging").forEach((card) => {
-        card.classList.remove("is-drag-over", "is-dragging");
+      memberList.classList.remove("is-sorting");
+      clearDropIndicators();
+      document.querySelectorAll(".member-card.is-dragging").forEach((card) => {
+        card.classList.remove("is-dragging");
       });
     });
 
@@ -417,6 +466,39 @@ function renderMembers() {
 
     memberList.appendChild(item);
   });
+
+  const bottomDropZone = createDropZone("末尾に入れる", "end");
+  memberList.appendChild(bottomDropZone);
+}
+
+function createDropZone(label, edge) {
+  const zone = document.createElement("div");
+  zone.className = "member-drop-zone";
+  zone.textContent = label;
+
+  zone.addEventListener("dragover", (event) => {
+    if (!draggedUserId) {
+      return;
+    }
+    event.preventDefault();
+    clearDropIndicators();
+    zone.classList.add("is-drop-active");
+    event.dataTransfer.dropEffect = "move";
+  });
+
+  zone.addEventListener("dragleave", () => {
+    zone.classList.remove("is-drop-active");
+  });
+
+  zone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    moveDraggedMemberToEdge(edge);
+    draggedUserId = "";
+    memberList.classList.remove("is-sorting");
+    clearDropIndicators();
+  });
+
+  return zone;
 }
 function updateBatchControls() {
   const count = pendingDeltas.size;

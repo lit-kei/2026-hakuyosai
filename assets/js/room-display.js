@@ -25,6 +25,7 @@ const roomId = new URLSearchParams(location.search).get("id");
 const roomTitle = document.querySelector("#roomTitle");
 const memberCount = document.querySelector("#memberCount");
 const displayMessage = document.querySelector("#displayMessage");
+const displayScroller = document.querySelector("#displayScroller");
 const displayList = document.querySelector("#displayList");
 const sortButtons = document.querySelectorAll("[data-sort]");
 
@@ -112,7 +113,7 @@ function stopAutoScroll() {
 }
 
 function runAutoScroll(frameAt) {
-  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  const maxScroll = displayScroller.scrollHeight - displayScroller.clientHeight;
   if (!shouldAutoScroll || maxScroll <= 24) {
     scrollAnimationId = 0;
     return;
@@ -124,14 +125,14 @@ function runAutoScroll(frameAt) {
 
   const elapsed = frameAt - lastScrollFrameAt;
   lastScrollFrameAt = frameAt;
-  const nextY = Math.min(maxScroll, window.scrollY + elapsed * SCROLL_SPEED_PX_PER_MS);
-  window.scrollTo(0, nextY);
+  const nextY = Math.min(maxScroll, displayScroller.scrollTop + elapsed * SCROLL_SPEED_PX_PER_MS);
+  displayScroller.scrollTop = nextY;
 
   if (nextY >= maxScroll - 1) {
     isScrollPaused = true;
     scrollAnimationId = 0;
     scrollPauseTimer = window.setTimeout(() => {
-      window.scrollTo(0, 0);
+      displayScroller.scrollTop = 0;
       isScrollPaused = false;
       lastScrollFrameAt = 0;
       scrollAnimationId = requestAnimationFrame(runAutoScroll);
@@ -148,9 +149,9 @@ function restartAutoScroll() {
     return;
   }
 
-  window.scrollTo(0, 0);
+  displayScroller.scrollTop = 0;
   requestAnimationFrame(() => {
-    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    const maxScroll = displayScroller.scrollHeight - displayScroller.clientHeight;
     if (maxScroll > 24 && !isScrollPaused) {
       scrollAnimationId = requestAnimationFrame(runAutoScroll);
     }

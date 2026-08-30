@@ -50,6 +50,7 @@
 
 /* 1ユーザーのカード */
 .member-card {
+  position: relative;
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -68,6 +69,60 @@
   background: #edf7f6;
 }
 
+.member-card.is-drop-before,
+.member-card.is-drop-after {
+  border-color: var(--primary);
+  background: #edf7f6;
+}
+
+.member-card.is-drop-before::before,
+.member-card.is-drop-after::after {
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  z-index: 2;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(17, 100, 102, 0.16);
+  content: "";
+}
+
+.member-card.is-drop-before::before {
+  top: -7px;
+}
+
+.member-card.is-drop-after::after {
+  bottom: -7px;
+}
+
+.member-list.is-sorting {
+  gap: 14px 8px;
+}
+
+.member-drop-zone {
+  display: none;
+  grid-column: 1 / -1;
+  min-height: 38px;
+  place-items: center;
+  border: 2px dashed var(--line);
+  border-radius: 7px;
+  background: #f7faf9;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.member-list.is-sorting .member-drop-zone {
+  display: grid;
+}
+
+.member-drop-zone.is-drop-active {
+  border-color: var(--primary);
+  background: #dff2ef;
+  color: var(--primary-dark);
+}
+
 .member-drag-handle {
   display: flex;
   align-items: center;
@@ -82,7 +137,7 @@
 }
 
 .member-drag-handle::before {
-  content: "ドラッグで並び替え";
+  content: "つかんで移動";
 }
 
 .member-drag-grip {

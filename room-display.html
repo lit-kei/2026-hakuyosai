@@ -26,8 +26,10 @@
         </div>
       </header>
 
-      <p id="displayMessage" class="message info">参加者を読み込み中です。</p>
-      <section id="displayList" class="display-list" aria-label="部屋の参加者一覧"></section>
+      <section id="displayScroller" class="display-scroll-area">
+        <p id="displayMessage" class="message info">参加者を読み込み中です。</p>
+        <section id="displayList" class="display-list" aria-label="部屋の参加者一覧"></section>
+      </section>
     </main>
 
     <script type="module" src="assets/js/room-display.js"></script>
