@@ -64,6 +64,17 @@
   opacity: 0.55;
 }
 
+.member-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.92;
+  box-shadow: 0 14px 32px rgba(20, 35, 34, 0.22);
+  transform: translate(-9999px, -9999px);
+}
+
 .member-card.is-drag-over {
   border-color: var(--primary);
   background: #edf7f6;
@@ -78,10 +89,10 @@
 .member-card.is-drop-before::before,
 .member-card.is-drop-after::after {
   position: absolute;
-  right: 6px;
-  left: 6px;
   z-index: 2;
-  height: 5px;
+  top: 8px;
+  bottom: 8px;
+  width: 5px;
   border-radius: 999px;
   background: var(--primary);
   box-shadow: 0 0 0 3px rgba(17, 100, 102, 0.16);
@@ -89,38 +100,15 @@
 }
 
 .member-card.is-drop-before::before {
-  top: -7px;
+  left: -7px;
 }
 
 .member-card.is-drop-after::after {
-  bottom: -7px;
+  right: -7px;
 }
 
 .member-list.is-sorting {
   gap: 14px 8px;
-}
-
-.member-drop-zone {
-  display: none;
-  grid-column: 1 / -1;
-  min-height: 38px;
-  place-items: center;
-  border: 2px dashed var(--line);
-  border-radius: 7px;
-  background: #f7faf9;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.member-list.is-sorting .member-drop-zone {
-  display: grid;
-}
-
-.member-drop-zone.is-drop-active {
-  border-color: var(--primary);
-  background: #dff2ef;
-  color: var(--primary-dark);
 }
 
 .member-drag-handle {
@@ -152,9 +140,6 @@
   cursor: grabbing;
 }
 
-.member-drag-handle::before {
-  content: "つかんで移動";
-}
 
 .member-drag-grip {
   color: var(--muted);
@@ -162,7 +147,7 @@
   letter-spacing: 0.12em;
 }
 
-.member-drag-handle:disabled {
+.member-card.is-not-sortable .member-drag-handle {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -232,10 +217,10 @@
 }
 
 
-/* ±500 / ±100 */
+/* ±100 */
 .balance-controls {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
 }
 
@@ -245,6 +230,59 @@
   padding: 3px 2px;
   border-radius: 5px;
   font-size: 0.73rem;
+}
+
+.custom-delta-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px;
+}
+
+.custom-delta-form input {
+  min-height: 32px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.custom-delta-direction {
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #f7faf9;
+}
+
+.custom-delta-direction button,
+.custom-delta-form > button {
+  min-height: 28px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+
+.custom-delta-direction button {
+  background: transparent;
+  color: var(--muted);
+}
+
+.custom-delta-direction button.is-active.plus {
+  background: var(--primary);
+  color: #fff;
+}
+.custom-delta-direction button.is-active.minus {
+  background: var(--danger);
+  color: #fff;
+}
+
+.custom-delta-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 5px 7px;
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 
@@ -320,6 +358,14 @@
 
   .member-sub-actions button {
     min-height: 34px;
+  }
+
+  .custom-delta-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .custom-delta-form > button {
+    grid-column: 1 / -1;
   }
 
   .member-balance {

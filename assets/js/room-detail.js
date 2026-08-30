@@ -60,10 +60,19 @@ const pendingDeltas = new Map();
 let isSavingBalances = false;
 let draggedUserId = "";
 let memberOrder = [];
-let activeDropTarget = null;
+let dropTargetUserId = "";
+let dropTargetPlacement = "";
 let activePointerId = null;
+let dragGhost = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let draggedItemElement = null;
+let dragStartX = 0;
+let dragStartY = 0;
+let hasSortMoved = false;
 
 const MEMBER_ORDER_STORAGE_KEY = `hakuyosaiRoomMemberOrder:${roomId || "unknown"}`;
+const SAVE_CONCURRENCY_LIMIT = 5;
 
 function loadMemberOrder() {
   try {
@@ -117,30 +126,38 @@ function moveMemberOrder(targetUserId, insertAfter = false) {
   renderMembers();
 }
 
-function moveDraggedMemberToEdge(edge) {
-  if (!draggedUserId) {
-    return;
-  }
-
-  const nextOrder = memberOrder.filter((userId) => userId !== draggedUserId);
-  if (edge === "end") {
-    nextOrder.push(draggedUserId);
-  } else {
-    nextOrder.unshift(draggedUserId);
-  }
-
-  memberOrder = nextOrder;
-  saveMemberOrder();
-  members = applyMemberOrder(members);
-  renderMembers();
+function clearDropIndicators() {
+  dropTargetUserId = "";
+  dropTargetPlacement = "";
+  document.querySelectorAll(".member-card.is-drop-before, .member-card.is-drop-after, .member-card.is-drag-over").forEach((card) => {
+    card.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
+  });
 }
 
-function clearDropIndicators() {
-  activeDropTarget = null;
-  document.querySelectorAll(".member-card.is-drop-before, .member-card.is-drop-after, .member-card.is-drag-over, .member-drop-zone.is-drop-active").forEach((card) => {
-    card.classList.remove("is-drop-before", "is-drop-after", "is-drag-over");
-    card.classList.remove("is-drop-active");
+function findNearestDropCard(clientX, clientY) {
+  const directCard = document.elementFromPoint(clientX, clientY)?.closest(".member-card");
+  if (directCard && directCard.dataset.userId !== draggedUserId) {
+    return directCard;
+  }
+
+  const cards = [...memberList.querySelectorAll(".member-card")].filter((card) => {
+    return card.dataset.userId !== draggedUserId;
   });
+
+  let nearestCard = null;
+  let nearestDistance = Infinity;
+  cards.forEach((card) => {
+    const rect = card.getBoundingClientRect();
+    const horizontalDistance = clientX < rect.left ? rect.left - clientX : Math.max(clientX - rect.right, 0);
+    const verticalDistance = clientY < rect.top ? rect.top - clientY : Math.max(clientY - rect.bottom, 0);
+    const distance = horizontalDistance + verticalDistance * 2;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestCard = card;
+    }
+  });
+
+  return nearestCard;
 }
 
 function updateDropIndicator(clientX, clientY) {
@@ -149,48 +166,182 @@ function updateDropIndicator(clientX, clientY) {
     return;
   }
 
-  const target = document.elementFromPoint(clientX, clientY);
-  const dropZone = target?.closest(".member-drop-zone");
-  if (dropZone) {
-    dropZone.classList.add("is-drop-active");
-    activeDropTarget = {
-      type: "edge",
-      edge: dropZone.dataset.edge
-    };
+  const item = findNearestDropCard(clientX, clientY);
+  if (!item) {
     return;
   }
 
-  const item = target?.closest(".member-card");
-  if (!item || draggedUserId === item.dataset.userId) {
-    return;
-  }
   const rect = item.getBoundingClientRect();
-  const insertAfter = clientY > rect.top + rect.height / 2;
-  activeDropTarget = {
-    type: "member",
-    targetUserId: item.dataset.userId,
-    insertAfter
-  };
+  const insertAfter = clientX > rect.left + rect.width / 2;
+  dropTargetUserId = item.dataset.userId;
+  dropTargetPlacement = insertAfter ? "after" : "before";
   item.classList.add(insertAfter ? "is-drop-after" : "is-drop-before");
 }
 
-function finishPointerSort(shouldCommit) {
-  const dropTarget = activeDropTarget;
-  if (shouldCommit && draggedUserId && dropTarget) {
-    if (dropTarget.type === "edge") {
-      moveDraggedMemberToEdge(dropTarget.edge);
-    } else {
-      moveMemberOrder(dropTarget.targetUserId, dropTarget.insertAfter);
+function moveDragGhost(clientX, clientY) {
+  if (!dragGhost) {
+    return;
+  }
+
+  dragGhost.style.transform = `translate(${clientX - dragOffsetX}px, ${clientY - dragOffsetY}px)`;
+}
+
+function cleanupMemberSort() {
+  draggedUserId = "";
+  activePointerId = null;
+  dropTargetUserId = "";
+  dropTargetPlacement = "";
+  draggedItemElement?.classList.remove("is-dragging");
+  draggedItemElement = null;
+  hasSortMoved = false;
+  memberList.classList.remove("is-sorting");
+  clearDropIndicators();
+  dragGhost?.remove();
+  dragGhost = null;
+}
+
+function startMemberSort(event, user, item) {
+  if (!user || isSavingBalances || processingUserId) {
+    return;
+  }
+
+  cleanupMemberSort();
+  event.preventDefault();
+  activePointerId = event.pointerId;
+  draggedUserId = user.id;
+  draggedItemElement = item;
+  dragStartX = event.clientX;
+  dragStartY = event.clientY;
+
+  const rect = item.getBoundingClientRect();
+  dragOffsetX = event.clientX - rect.left;
+  dragOffsetY = event.clientY - rect.top;
+
+  dragGhost = item.cloneNode(true);
+  dragGhost.classList.add("member-drag-ghost");
+  dragGhost.style.width = `${rect.width}px`;
+  dragGhost.style.height = `${rect.height}px`;
+  document.body.appendChild(dragGhost);
+  moveDragGhost(event.clientX, event.clientY);
+
+  item.classList.add("is-dragging");
+  memberList.classList.add("is-sorting");
+  event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function finishMemberSort(shouldCommit) {
+  if (shouldCommit && draggedUserId && hasSortMoved) {
+    if (dropTargetUserId) {
+      moveMemberOrder(dropTargetUserId, dropTargetPlacement === "after");
     }
   }
 
-  draggedUserId = "";
-  activePointerId = null;
-  memberList.classList.remove("is-sorting");
-  clearDropIndicators();
-  document.querySelectorAll(".member-card.is-dragging").forEach((card) => {
-    card.classList.remove("is-dragging");
+  cleanupMemberSort();
+}
+
+function handleMemberSortMove(event) {
+  if (event.pointerId !== activePointerId || !draggedUserId) {
+    return;
+  }
+
+  event.preventDefault();
+  const distance = Math.abs(event.clientX - dragStartX) + Math.abs(event.clientY - dragStartY);
+  if (distance > 5) {
+    hasSortMoved = true;
+  }
+  moveDragGhost(event.clientX, event.clientY);
+  updateDropIndicator(event.clientX, event.clientY);
+}
+
+function addCustomAmount(userId, rawAmount, direction, messageElement) {
+  const amount = parseAmount(rawAmount);
+  if (amount === null) {
+    showMessage(messageElement, "1以上の整数を入力してください。", "error");
+    return false;
+  }
+
+  changePendingDelta(userId, direction === "subtract" ? -amount : amount);
+  showMessage(messageElement, "");
+  return true;
+}
+
+async function runLimitedParallel(items, limit, worker) {
+  const results = [];
+
+  for (let index = 0; index < items.length; index += limit) {
+    const chunk = items.slice(index, index + limit);
+    const chunkResults = await Promise.all(
+      chunk.map(async (item) => {
+        try {
+          return {
+            ok: true,
+            value: await worker(item)
+          };
+        } catch (error) {
+          return {
+            ok: false,
+            item,
+            error
+          };
+        }
+      })
+    );
+    results.push(...chunkResults);
+  }
+
+  return results;
+}
+
+async function saveOneBalanceChange(change) {
+  let result = null;
+
+  await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, "users", change.user.id);
+    const memberRef = doc(db, "roomMembers", change.user.id);
+    const userSnapshot = await transaction.get(userRef);
+    const memberSnapshot = await transaction.get(memberRef);
+
+    if (!userSnapshot.exists()) {
+      throw new Error(`${change.user.displayName || "参加者"} が見つかりません。`);
+    }
+
+    const currentBalance = Number(userSnapshot.data().balance || 0);
+    const balanceAfter = currentBalance + change.amount;
+
+    if (!Number.isInteger(balanceAfter)) {
+      throw new Error(`${change.user.displayName || "参加者"} の残高が不正です。`);
+    }
+
+    transaction.update(userRef, {
+      balance: balanceAfter,
+      updatedAt: serverTimestamp()
+    });
+
+    if (memberSnapshot.exists() && memberSnapshot.data().roomId === roomId) {
+      transaction.update(memberRef, {
+        roomDelta: Number(memberSnapshot.data().roomDelta || 0) + change.amount,
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    transaction.set(doc(collection(db, "transactions")), {
+      userId: change.user.id,
+      amount: change.amount,
+      balanceBefore: currentBalance,
+      balanceAfter,
+      type: "room-game",
+      roomId,
+      roomName: room.name || "",
+      createdAt: serverTimestamp()
+    });
+
+    result = {
+      userId: change.user.id,
+      balanceAfter
+    };
   });
+
+  return result;
 }
 
 function changePendingDelta(userId, amount) {
@@ -285,6 +436,10 @@ async function loadRoom() {
 }
 
 async function hydrateMembers(memberSnapshots) {
+  if (draggedUserId) {
+    finishMemberSort(false);
+  }
+
   const nextMembers = await Promise.all(
     memberSnapshots.map(async (memberSnapshot) => {
       const userSnapshot = await getDoc(doc(db, "users", memberSnapshot.id));
@@ -301,6 +456,9 @@ async function hydrateMembers(memberSnapshots) {
 }
 
 function renderMembers() {
+  if (!draggedUserId) {
+    cleanupMemberSort();
+  }
   memberList.innerHTML = "";
 
   if (members.length === 0) {
@@ -314,60 +472,44 @@ function renderMembers() {
 
   memberMessage.hidden = true;
 
-  const topDropZone = createDropZone("先頭に入れる", "start");
-  memberList.appendChild(topDropZone);
-
   members.forEach((member) => {
     const user = member.user;
 
     const item = document.createElement("article");
     item.className = "member-card";
+    item.classList.toggle("is-not-sortable", !user || isSavingBalances || Boolean(processingUserId));
     item.dataset.userId = getMemberUserId(member);
 
-    const dragHandle = document.createElement("button");
-    dragHandle.type = "button";
+    const dragHandle = document.createElement("div");
     dragHandle.className = "member-drag-handle";
-    dragHandle.disabled = !user || isSavingBalances || Boolean(processingUserId);
     dragHandle.addEventListener("pointerdown", (event) => {
-      if (!user || isSavingBalances || processingUserId) {
+      startMemberSort(event, user, item);
+    });
+    dragHandle.addEventListener("pointermove", handleMemberSortMove);
+    dragHandle.addEventListener("pointerup", (event) => {
+      if (event.pointerId !== activePointerId) {
         return;
       }
 
       event.preventDefault();
-      activePointerId = event.pointerId;
-      draggedUserId = user.id;
-      item.classList.add("is-dragging");
-      memberList.classList.add("is-sorting");
-      dragHandle.setPointerCapture(event.pointerId);
-      updateDropIndicator(event.clientX, event.clientY);
+      finishMemberSort(true);
+    });
+    dragHandle.addEventListener("pointercancel", (event) => {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+
+      finishMemberSort(false);
+    });
+    dragHandle.addEventListener("lostpointercapture", () => {
+      if (draggedUserId) {
+        finishMemberSort(false);
+      }
     });
     const dragGrip = document.createElement("span");
     dragGrip.className = "member-drag-grip";
     dragGrip.textContent = "⋮⋮";
     dragHandle.appendChild(dragGrip);
-
-    dragHandle.addEventListener("pointermove", (event) => {
-      if (event.pointerId !== activePointerId || !draggedUserId) {
-        return;
-      }
-      event.preventDefault();
-      updateDropIndicator(event.clientX, event.clientY);
-    });
-
-    dragHandle.addEventListener("pointerup", (event) => {
-      if (event.pointerId !== activePointerId) {
-        return;
-      }
-      event.preventDefault();
-      finishPointerSort(true);
-    });
-
-    dragHandle.addEventListener("pointercancel", (event) => {
-      if (event.pointerId !== activePointerId) {
-        return;
-      }
-      finishPointerSort(false);
-    });
 
     // 上段
     const header = document.createElement("div");
@@ -381,7 +523,7 @@ function renderMembers() {
 
     const publicId = document.createElement("span");
     publicId.textContent = user?.publicId
-      ? `公開ID: ${user.publicId}`
+      ? user.publicId
       : "公開IDなし";
 
     nameBlock.append(name, publicId);
@@ -423,7 +565,7 @@ function renderMembers() {
     const quickGrid = document.createElement("div");
     quickGrid.className = "balance-controls";
 
-    [-500, -100, 100, 500].forEach((amount) => {
+    [-100, 100].forEach((amount) => {
       const button = document.createElement("button");
 
       button.type = "button";
@@ -442,6 +584,64 @@ function renderMembers() {
       });
 
       quickGrid.appendChild(button);
+    });
+
+    const customForm = document.createElement("form");
+    customForm.className = "custom-delta-form";
+    let customDirection = "add";
+
+    const customInput = document.createElement("input");
+    customInput.type = "number";
+    customInput.inputMode = "numeric";
+    customInput.min = "1";
+    customInput.step = "1";
+    customInput.placeholder = "任意額";
+    customInput.disabled = !user || isSavingBalances;
+
+    const customDirectionButtons = document.createElement("div");
+    customDirectionButtons.className = "custom-delta-direction";
+
+    const plusButton = document.createElement("button");
+    plusButton.type = "button";
+    plusButton.textContent = "+";
+    plusButton.className = "is-active plus";
+    plusButton.disabled = !user || isSavingBalances;
+
+    const minusButton = document.createElement("button");
+    minusButton.type = "button";
+    minusButton.textContent = "-";
+    minusButton.className = "minus";
+    minusButton.disabled = !user || isSavingBalances;
+
+    const setDirection = (direction) => {
+      customDirection = direction;
+      plusButton.classList.toggle("is-active", direction === "add");
+      minusButton.classList.toggle("is-active", direction === "subtract");
+    };
+
+    plusButton.addEventListener("click", () => setDirection("add"));
+    minusButton.addEventListener("click", () => setDirection("subtract"));
+    customDirectionButtons.append(plusButton, minusButton);
+
+    const customSubmitButton = document.createElement("button");
+    customSubmitButton.type = "submit";
+    customSubmitButton.textContent = "反映";
+    customSubmitButton.disabled = !user || isSavingBalances;
+
+    const customMessage = document.createElement("p");
+    customMessage.className = "message custom-delta-message";
+    customMessage.hidden = true;
+
+    customForm.append(customInput, customDirectionButtons, customSubmitButton, customMessage);
+    customForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!user || isSavingBalances) {
+        return;
+      }
+
+      if (addCustomAmount(user.id, customInput.value, customDirection, customMessage)) {
+        customInput.value = "";
+      }
     });
 
     // その人の変更だけリセット
@@ -489,23 +689,12 @@ function renderMembers() {
       dragHandle,
       header,
       quickGrid,
+      customForm,
       subActions
     );
 
     memberList.appendChild(item);
   });
-
-  const bottomDropZone = createDropZone("末尾に入れる", "end");
-  memberList.appendChild(bottomDropZone);
-}
-
-function createDropZone(label, edge) {
-  const zone = document.createElement("div");
-  zone.className = "member-drop-zone";
-  zone.dataset.edge = edge;
-  zone.textContent = label;
-
-  return zone;
 }
 function updateBatchControls() {
   const count = pendingDeltas.size;
@@ -568,6 +757,7 @@ async function saveAllBalanceChanges() {
     return;
   }
 
+  finishMemberSort(false);
   isSavingBalances = true;
 
   renderMembers();
@@ -580,130 +770,23 @@ async function saveAllBalanceChanges() {
   );
 
   try {
-    const results = [];
-
-    await runTransaction(
-      db,
-      async (transaction) => {
-        const records = [];
-
-        // 先に全データを読む
-        for (const change of changes) {
-          const userRef = doc(
-            db,
-            "users",
-            change.user.id
-          );
-
-          const memberRef = doc(
-            db,
-            "roomMembers",
-            change.user.id
-          );
-
-          const userSnapshot =
-            await transaction.get(userRef);
-
-          const memberSnapshot =
-            await transaction.get(memberRef);
-
-          if (!userSnapshot.exists()) {
-            throw new Error(
-              `${change.user.displayName} が見つかりません。`
-            );
-          }
-
-          records.push({
-            ...change,
-            userRef,
-            memberRef,
-            userSnapshot,
-            memberSnapshot
-          });
-        }
-
-        // そのあと全員分を書く
-        for (const record of records) {
-          const currentBalance = Number(
-            record.userSnapshot.data().balance || 0
-          );
-
-          const balanceAfter =
-            currentBalance + record.amount;
-
-          if (!Number.isInteger(balanceAfter)) {
-            throw new Error(
-              `${record.user.displayName} の残高が不正です。`
-            );
-          }
-
-          transaction.update(
-            record.userRef,
-            {
-              balance: balanceAfter,
-              updatedAt: serverTimestamp()
-            }
-          );
-
-          if (
-            record.memberSnapshot.exists() &&
-            record.memberSnapshot.data().roomId === roomId
-          ) {
-            transaction.update(
-              record.memberRef,
-              {
-                roomDelta:
-                  Number(
-                    record.memberSnapshot.data()
-                      .roomDelta || 0
-                  ) + record.amount,
-
-                updatedAt:
-                  serverTimestamp()
-              }
-            );
-          }
-
-          transaction.set(
-            doc(
-              collection(
-                db,
-                "transactions"
-              )
-            ),
-            {
-              userId: record.user.id,
-              amount: record.amount,
-
-              balanceBefore:
-                currentBalance,
-
-              balanceAfter,
-
-              type: "room-game",
-
-              roomId,
-
-              roomName:
-                room.name || "",
-
-              createdAt:
-                serverTimestamp()
-            }
-          );
-
-          results.push({
-            userId: record.user.id,
-            balanceAfter
-          });
-        }
-      }
+    const saveResults = await runLimitedParallel(
+      changes,
+      SAVE_CONCURRENCY_LIMIT,
+      saveOneBalanceChange
     );
+    const successes = saveResults
+      .filter((result) => result.ok)
+      .map((result) => result.value);
+    const failures = saveResults.filter((result) => !result.ok);
+    const successfulUserIds = new Set(successes.map((result) => result.userId));
 
-    pendingDeltas.clear();
+    successfulUserIds.forEach((userId) => {
+      pendingDeltas.delete(userId);
+    });
 
     members = members.map((member) => {
-      const result = results.find(
+      const result = successes.find(
         (result) =>
           result.userId === member.user?.id
       );
@@ -721,11 +804,27 @@ async function saveAllBalanceChanges() {
       };
     });
 
-    showMessage(
-      roomMessage,
-      `${results.length}人の資産を更新しました。`,
-      "success"
-    );
+    if (failures.length > 0) {
+      const failureSummary = failures
+        .slice(0, 3)
+        .map((failure) => {
+          const name = failure.item.user?.displayName || "名前なし";
+          return `${name}: ${failure.error.message}`;
+        })
+        .join(" / ");
+      const extraCount = failures.length > 3 ? ` ほか${failures.length - 3}件` : "";
+      showMessage(
+        roomMessage,
+        `${successes.length}人を保存しました。${failures.length}人は失敗しました。${failureSummary}${extraCount}`,
+        "error"
+      );
+    } else {
+      showMessage(
+        roomMessage,
+        `${successes.length}人の資産を更新しました。`,
+        "success"
+      );
+    }
   } catch (error) {
     showMessage(
       roomMessage,
@@ -820,3 +919,23 @@ saveBalancesButton.addEventListener(
 );
 
 memberOrder = loadMemberOrder();
+
+window.addEventListener("pointermove", handleMemberSortMove);
+window.addEventListener("pointerup", (event) => {
+  if (event.pointerId === activePointerId) {
+    finishMemberSort(true);
+  }
+});
+window.addEventListener("pointercancel", (event) => {
+  if (event.pointerId === activePointerId) {
+    finishMemberSort(false);
+  }
+});
+window.addEventListener("blur", () => {
+  finishMemberSort(false);
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    finishMemberSort(false);
+  }
+});
