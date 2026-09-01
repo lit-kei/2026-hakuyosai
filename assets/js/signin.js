@@ -90,7 +90,7 @@ function setBusy(isBusy, message = "処理中です。") {
 
 function showEntryPanels() {
   loadingPanel.classList.add("hidden");
-  loginPanel.classList.remove("hidden");
+  if (isReception === false) loginPanel.classList.remove("hidden");
   createPanel.classList.remove("hidden");
 }
 
