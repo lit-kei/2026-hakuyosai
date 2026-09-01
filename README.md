@@ -88,10 +88,10 @@ transactions/{transactionId}
 初期残高は `assets/js/signin.js` の次の定数で変更できます。
 
 ```js
-const INITIAL_BALANCE = 2000;
+const INITIAL_BALANCE = 25000;
 ```
 
-変更した場合は、`firestore.rules` の `request.resource.data.balance == 2000` も同じ値に変更してください。
+変更した場合は、`firestore.rules` の `request.resource.data.balance == 25000` も同じ値に変更してください。
 
 ## 管理者設定方法
 

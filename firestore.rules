@@ -35,7 +35,7 @@ service cloud.firestore {
         ])
         && validDisplayName(request.resource.data.displayName)
         && validUsernameKey(request.resource.data.usernameKey)
-        && request.resource.data.balance == 2000
+        && request.resource.data.balance == 25000
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[ACDEFGHJKMNPQRTUVWXY34679]{6}$")
         && request.resource.data.createdAt == request.time
@@ -55,7 +55,7 @@ service cloud.firestore {
         ])
         && validDisplayName(request.resource.data.displayName)
         && validUsernameKey(request.resource.data.usernameKey)
-        && request.resource.data.balance == 2000
+        && request.resource.data.balance == 25000
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[ACDEFGHJKMNPQRTUVWXY34679]{6}$")
         && request.resource.data.createdAt == request.time

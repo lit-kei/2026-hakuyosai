@@ -17,7 +17,7 @@ const firebaseConfig = {
   appId: "1:729750832138:web:7248b5bc281179e8ec4bf3"
 };
 
-const INITIAL_BALANCE = 2000;
+const INITIAL_BALANCE = 25000;
 const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
 const PUBLIC_ID_STORAGE_KEY = "hakuyosaiPublicId";
 const PUBLIC_ID_ALPHABET = "ACDEFGHJKMNPQRTUVWXY34679";
