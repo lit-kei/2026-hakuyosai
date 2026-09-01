@@ -43,9 +43,7 @@ const roomTitle = document.querySelector("#roomTitle");
 const roomNameDisplay = document.querySelector("#roomNameDisplay");
 const roomMessage = document.querySelector("#roomMessage");
 const scanButton = document.querySelector("#scanButton");
-const scanLink = document.querySelector("#scanLink");
 const displayButton = document.querySelector("#displayButton");
-const displayLink = document.querySelector("#displayLink");
 const memberMessage = document.querySelector("#memberMessage");
 const memberList = document.querySelector("#memberList");
 const pendingCount = document.querySelector("#pendingCount");
@@ -429,9 +427,7 @@ async function loadRoom() {
   roomTitle.textContent = room.name || "個別部屋管理";
   roomNameDisplay.textContent = room.name || "名前なしの部屋";
   scanButton.href = `room-scan.html?id=${encodeURIComponent(roomId)}`;
-  scanLink.href = `room-scan.html?id=${encodeURIComponent(roomId)}`;
   displayButton.href = `room-display.html?id=${encodeURIComponent(roomId)}`;
-  displayLink.href = `room-display.html?id=${encodeURIComponent(roomId)}`;
   return true;
 }
 
