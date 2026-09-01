@@ -47,18 +47,32 @@ if (isReception) {
 }
 
 function normalizeDisplayName(value) {
-  return value.trim().replace(/\s+/g, " ");
+  return value;
 }
 
 function validateDisplayName(value) {
   const name = normalizeDisplayName(value);
-  if (name.length < 1) {
-    return { ok: false, message: "表示名を入力してください。" };
-  }
-  if (name.length > 24) {
-    return { ok: false, message: "表示名は24文字以内にしてください。" };
+  if (!/^[A-Za-z0-9_-]{1,12}$/.test(name)) {
+    return {
+      ok: false,
+      message: "ユーザー名は英数字、ハイフン、アンダースコアのみで1〜12文字にしてください。"
+    };
   }
   return { ok: true, value: name };
+}
+
+function getUsernameKey(username) {
+  return username.toLowerCase();
+}
+
+function createReadableError(error) {
+  if (error.message === "USERNAME_EXISTS") {
+    return new Error("このユーザー名はすでに使われています。別の名前にしてください。");
+  }
+  if (error.message === "PUBLIC_ID_EXISTS") {
+    return new Error("公開IDの生成が重複しました。もう一度お試しください。");
+  }
+  return error;
 }
 
 function normalizePublicId(value) {
@@ -142,6 +156,8 @@ async function validateStoredLogin() {
 }
 
 async function createAccount(displayName) {
+  const usernameKey = getUsernameKey(displayName);
+
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const publicId = generatePublicId();
     const userRef = doc(collection(db, "users"));
@@ -150,10 +166,15 @@ async function createAccount(displayName) {
     try {
       await runTransaction(db, async (transaction) => {
         const publicIdRef = doc(db, "publicIds", publicId);
+        const usernameRef = doc(db, "usernames", usernameKey);
         const publicIdSnapshot = await transaction.get(publicIdRef);
+        const usernameSnapshot = await transaction.get(usernameRef);
 
         if (publicIdSnapshot.exists()) {
           throw new Error("PUBLIC_ID_EXISTS");
+        }
+        if (usernameSnapshot.exists()) {
+          throw new Error("USERNAME_EXISTS");
         }
 
         transaction.set(publicIdRef, {
@@ -162,8 +183,15 @@ async function createAccount(displayName) {
         });
         transaction.set(userRef, {
           displayName,
+          usernameKey,
           balance: INITIAL_BALANCE,
           publicId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        transaction.set(usernameRef, {
+          userId,
+          username: displayName,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -171,6 +199,9 @@ async function createAccount(displayName) {
 
       return { userId, publicId };
     } catch (error) {
+      if (error.message === "USERNAME_EXISTS") {
+        throw createReadableError(error);
+      }
       if (error.message !== "PUBLIC_ID_EXISTS") {
         throw error;
       }
@@ -229,6 +260,13 @@ createForm.addEventListener("submit", async (event) => {
   const validation = validateDisplayName(createName.value);
   if (!validation.ok) {
     showMessage(createMessage, validation.message, "error");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `ユーザー名「${validation.value}」でアカウントを作成します。\nこの名前は他の人と同じものは使えません。\n実行しますか？`
+  );
+  if (!confirmed) {
     return;
   }
 

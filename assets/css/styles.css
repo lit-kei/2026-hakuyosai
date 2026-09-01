@@ -350,6 +350,39 @@ button:disabled {
   height: auto;
 }
 
+.lookup-session-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 2px solid var(--danger);
+  border-radius: 8px;
+  background: var(--danger-bg);
+}
+
+.lookup-session-bar p {
+  margin: 0;
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.lookup-rename {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.lookup-finish-wide {
+  width: 100%;
+  margin-top: 18px;
+  min-height: 64px;
+  font-size: 1.1rem;
+}
+
 .meta-list {
   display: grid;
   gap: 8px;
@@ -460,6 +493,99 @@ button:disabled {
 .ranking-item.top-rank {
   border-color: rgba(214, 165, 58, 0.65);
   background: #fff9ea;
+}
+
+.ranking-scroll-area {
+  min-height: 0;
+}
+
+.ranking-display-page {
+  height: 100vh;
+  overflow: hidden;
+  background: #0f1716;
+  color: #f8fbfa;
+}
+
+.ranking-display-page .app-shell {
+  width: min(980px, 100%);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 28px;
+}
+
+.ranking-display-page .topbar {
+  margin-bottom: 0;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.22);
+}
+
+.ranking-display-page .brand-subtitle {
+  color: #b8c9c6;
+}
+
+.ranking-display-page .nav-links a {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #182624;
+  color: #f8fbfa;
+}
+
+.ranking-display-page .panel {
+  min-height: 0;
+  margin: 0;
+  padding: 18px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.ranking-display-page .panel h2 {
+  color: #9dcfca;
+}
+
+.ranking-display-page .ranking-scroll-area {
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid rgba(157, 207, 202, 0.22);
+  padding-top: 18px;
+  scrollbar-width: none;
+}
+
+.ranking-display-page .ranking-scroll-area::-webkit-scrollbar {
+  display: none;
+}
+
+.ranking-display-page .ranking-list {
+  gap: 12px;
+}
+
+.ranking-display-page .ranking-item {
+  padding: 16px 18px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #172321;
+}
+
+.ranking-display-page .ranking-item.top-rank {
+  border-color: rgba(214, 165, 58, 0.65);
+  background: #332b16;
+}
+
+.ranking-display-page .ranking-rank {
+  color: #d6a53a;
+  font-size: 1.3rem;
+}
+
+.ranking-display-page .ranking-name {
+  color: #f8fbfa;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+}
+
+.ranking-display-page .ranking-balance {
+  color: #f8fbfa;
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
 }
 
 .room-list,
@@ -793,6 +919,10 @@ button:disabled {
   .meta-row {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+
+  .lookup-session-bar {
+    grid-template-columns: 1fr;
   }
 
   .qr-code {

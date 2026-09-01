@@ -28,6 +28,11 @@
       </section>
 
       <section id="resultPanel" class="panel hidden">
+        <div class="lookup-session-bar">
+          <p>プロフィール表示中です。確認が終わったら必ず終了してください。</p>
+          <button id="finishButton" class="button-danger" type="button">終了する</button>
+        </div>
+
         <div id="lookupRoomCard" class="room-status is-loading">
           <span class="label">現在の所属部屋</span>
           <p id="lookupRoom" class="room-status-name">確認中</p>
@@ -46,10 +51,24 @@
             <dd id="lookupBalance" class="profile-balance"></dd>
           </div>
         </dl>
+
+        <div class="lookup-rename">
+          <h3>ユーザー名変更</h3>
+          <form id="renameForm" class="stack">
+            <label class="field">
+              <span>新しいユーザー名</span>
+              <input id="renameName" name="displayName" autocomplete="off" maxlength="12" pattern="[A-Za-z0-9_-]{1,12}" placeholder="Alice_01" required>
+            </label>
+            <p class="help-text">英数字、ハイフン、アンダースコアのみ。1〜12文字で、他の人と同じ名前は使えません。</p>
+            <button id="renameButton" type="submit">ユーザー名を変更する</button>
+            <p id="renameMessage" class="message" hidden></p>
+          </form>
+        </div>
+
+        <button id="finishButtonBottom" class="button-danger lookup-finish-wide" type="button">確認を終了する</button>
       </section>
     </main>
 
     <script type="module" src="assets/js/lookup.js"></script>
   </body>
 </html>
-

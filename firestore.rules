@@ -13,18 +13,28 @@ service cloud.firestore {
     function validDisplayName(name) {
       return name is string
         && name.size() >= 1
-        && name.size() <= 24;
+        && name.size() <= 12
+        && name.matches("^[A-Za-z0-9_-]{1,12}$");
+    }
+
+    function validUsernameKey(usernameKey) {
+      return usernameKey is string
+        && usernameKey.size() >= 1
+        && usernameKey.size() <= 12
+        && usernameKey.matches("^[a-z0-9_-]{1,12}$");
     }
 
     function isParticipantCreate(userId) {
       return request.resource.data.keys().hasOnly([
           "displayName",
+          "usernameKey",
           "balance",
           "publicId",
           "createdAt",
           "updatedAt"
         ])
         && validDisplayName(request.resource.data.displayName)
+        && validUsernameKey(request.resource.data.usernameKey)
         && request.resource.data.balance == 1000
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
@@ -37,12 +47,14 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly([
           "displayName",
+          "usernameKey",
           "balance",
           "publicId",
           "createdAt",
           "updatedAt"
         ])
         && validDisplayName(request.resource.data.displayName)
+        && validUsernameKey(request.resource.data.usernameKey)
         && request.resource.data.balance == 1000
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
@@ -55,10 +67,12 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "displayName",
+          "usernameKey",
           "publicId",
           "updatedAt"
         ])
         && validDisplayName(request.resource.data.displayName)
+        && validUsernameKey(request.resource.data.usernameKey)
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
         && request.resource.data.balance == resource.data.balance
@@ -69,10 +83,12 @@ service cloud.firestore {
     function isPublicProfileUpdate() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "displayName",
+          "usernameKey",
           "publicId",
           "updatedAt"
         ])
         && validDisplayName(request.resource.data.displayName)
+        && validUsernameKey(request.resource.data.usernameKey)
         && request.resource.data.publicId is string
         && request.resource.data.publicId.matches("^[A-Z0-9]{6}$")
         && request.resource.data.balance == resource.data.balance
@@ -94,6 +110,33 @@ service cloud.firestore {
         && request.resource.data.userId is string
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
+    }
+
+    match /usernames/{usernameKey} {
+      allow read: if true;
+      allow create: if usernameKey.matches("^[a-z0-9_-]{1,12}$")
+        && request.resource.data.keys().hasOnly([
+          "userId",
+          "username",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.userId is string
+        && validDisplayName(request.resource.data.username)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if usernameKey.matches("^[a-z0-9_-]{1,12}$")
+        && request.resource.data.keys().hasOnly([
+          "userId",
+          "username",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.userId == resource.data.userId
+        && validDisplayName(request.resource.data.username)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if resource.data.userId is string;
     }
 
     match /rooms/{roomId} {

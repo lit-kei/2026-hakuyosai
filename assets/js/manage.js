@@ -128,12 +128,10 @@ function renderUsers() {
 
   const filteredUsers = users.filter((user) => {
     const name = (user.displayName || "").toLowerCase();
-    const userId = (user.id || "").toLowerCase();
     const publicId = (user.publicId || "").toLowerCase();
 
     return (
       name.includes(searchTerm) ||
-      userId.includes(searchTerm) ||
       publicId.includes(searchTerm)
     );
   });

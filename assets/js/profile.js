@@ -3,7 +3,6 @@ import {
   getFirestore,
   doc,
   getDoc,
-  updateDoc,
   onSnapshot,
   runTransaction,
   serverTimestamp
@@ -59,18 +58,22 @@ let unsubscribeUser = null;
 let unsubscribeRoomMember = null;
 
 function normalizeDisplayName(value) {
-  return value.trim().replace(/\s+/g, " ");
+  return value;
 }
 
 function validateDisplayName(value) {
   const name = normalizeDisplayName(value);
-  if (name.length < 1) {
-    return { ok: false, message: "表示名を入力してください。" };
-  }
-  if (name.length > 24) {
-    return { ok: false, message: "表示名は24文字以内にしてください。" };
+  if (!/^[A-Za-z0-9_-]{1,12}$/.test(name)) {
+    return {
+      ok: false,
+      message: "ユーザー名は英数字、ハイフン、アンダースコアのみで1〜12文字にしてください。"
+    };
   }
   return { ok: true, value: name };
+}
+
+function getUsernameKey(username) {
+  return username.toLowerCase();
 }
 
 function showMessage(element, message, type = "info") {
@@ -172,6 +175,63 @@ function renderProfile(data) {
   showProfile();
 }
 
+async function updateUsername(userId, nextName) {
+  const nextUsernameKey = getUsernameKey(nextName);
+  const userRef = doc(db, "users", userId);
+
+  await runTransaction(db, async (transaction) => {
+    const userSnapshot = await transaction.get(userRef);
+
+    if (!userSnapshot.exists()) {
+      throw new Error("アカウントが見つかりません。");
+    }
+
+    const currentData = userSnapshot.data();
+    const currentUsernameKey =
+      currentData.usernameKey ||
+      (currentData.displayName ? getUsernameKey(currentData.displayName) : "");
+    const nextUsernameRef = doc(db, "usernames", nextUsernameKey);
+    const currentUsernameRef = currentUsernameKey
+      ? doc(db, "usernames", currentUsernameKey)
+      : null;
+    const nextUsernameSnapshot = await transaction.get(nextUsernameRef);
+    const currentUsernameSnapshot =
+      currentUsernameRef && currentUsernameKey !== nextUsernameKey
+        ? await transaction.get(currentUsernameRef)
+        : null;
+
+    if (
+      nextUsernameSnapshot.exists() &&
+      nextUsernameSnapshot.data().userId !== userId
+    ) {
+      throw new Error("USERNAME_EXISTS");
+    }
+
+    if (
+      currentUsernameRef &&
+      currentUsernameKey !== nextUsernameKey &&
+      currentUsernameSnapshot.exists() &&
+      currentUsernameSnapshot.data().userId === userId
+    ) {
+      transaction.delete(currentUsernameRef);
+    }
+
+    transaction.set(nextUsernameRef, {
+      userId,
+      username: nextName,
+      createdAt: nextUsernameSnapshot.exists()
+        ? nextUsernameSnapshot.data().createdAt
+        : serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    transaction.update(userRef, {
+      displayName: nextName,
+      usernameKey: nextUsernameKey,
+      updatedAt: serverTimestamp()
+    });
+  });
+}
+
 function setRoomStatus(name, detail, statusClass) {
   currentRoomElement.textContent = name;
   currentRoomDetail.textContent = detail;
@@ -260,15 +320,22 @@ renameForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  const confirmed = window.confirm(
+    `${currentName.textContent || "現在のユーザー"} のユーザー名を ${validation.value} に変更します。\n実行しますか？`
+  );
+  if (!confirmed) {
+    return;
+  }
+
   renameButton.disabled = true;
   try {
-    await updateDoc(doc(db, "users", currentUserId), {
-      displayName: validation.value,
-      updatedAt: serverTimestamp()
-    });
-    showMessage(renameMessage, "表示名を変更しました。", "success");
+    await updateUsername(currentUserId, validation.value);
+    showMessage(renameMessage, "ユーザー名を変更しました。", "success");
   } catch (error) {
-    showMessage(renameMessage, `表示名変更に失敗しました: ${error.message}`, "error");
+    const message = error.message === "USERNAME_EXISTS"
+      ? "このユーザー名はすでに使われています。別の名前にしてください。"
+      : `ユーザー名変更に失敗しました: ${error.message}`;
+    showMessage(renameMessage, message, "error");
   } finally {
     renameButton.disabled = false;
   }

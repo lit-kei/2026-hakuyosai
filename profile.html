@@ -39,7 +39,7 @@
           <p id="currentRoomDetail" class="room-status-detail">部屋が変わると自動で更新されます。</p>
         </div>
 
-        <h2>現在の表示名</h2>
+        <h2>現在のユーザー名</h2>
         <p id="currentName" class="current-name"></p>
         <dl class="meta-list">
           <div class="meta-row">
@@ -59,12 +59,13 @@
       </section>
 
       <section id="renamePanel" class="panel hidden">
-        <h2>表示名変更</h2>
+        <h2>ユーザー名変更</h2>
         <form id="renameForm" class="stack">
           <label class="field">
-            <span>新しい表示名</span>
-            <input id="renameName" name="displayName" autocomplete="nickname" maxlength="24" required>
+            <span>新しいユーザー名</span>
+            <input id="renameName" name="displayName" autocomplete="nickname" maxlength="12" pattern="[A-Za-z0-9_-]{1,12}" placeholder="Alice_01" required>
           </label>
+          <p class="help-text">英数字、ハイフン、アンダースコアのみ。1〜12文字で、他の人と同じ名前は使えません。</p>
           <button id="renameButton" type="submit">変更する</button>
           <p id="renameMessage" class="message" hidden></p>
         </form>
