@@ -853,11 +853,6 @@ async function removeMember(user) {
     return;
   }
 
-  const confirmed = window.confirm(`${user.displayName || "名前なし"} をこの部屋から退出させますか？`);
-  if (!confirmed) {
-    return;
-  }
-
   processingUserId = user.id;
   renderMembers();
   try {

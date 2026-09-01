@@ -19,6 +19,7 @@ const firebaseConfig = {
 
 const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
 const PUBLIC_ID_STORAGE_KEY = "hakuyosaiPublicId";
+const PUBLIC_ID_ALPHABET = "ACDEFGHJKMNPQRTUVWXY34679";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -87,10 +88,9 @@ function formatNumber(value) {
 }
 
 function generatePublicId() {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
   for (let index = 0; index < 6; index += 1) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    code += PUBLIC_ID_ALPHABET[Math.floor(Math.random() * PUBLIC_ID_ALPHABET.length)];
   }
   return code;
 }
@@ -317,13 +317,6 @@ renameForm.addEventListener("submit", async (event) => {
   const validation = validateDisplayName(renameName.value);
   if (!validation.ok) {
     showMessage(renameMessage, validation.message, "error");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `${currentName.textContent || "現在のユーザー"} のユーザー名を ${validation.value} に変更します。\n実行しますか？`
-  );
-  if (!confirmed) {
     return;
   }
 

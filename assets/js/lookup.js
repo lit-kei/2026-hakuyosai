@@ -45,9 +45,10 @@ let currentUsername = "";
 let inactivityTimerId = 0;
 
 const INACTIVITY_TIMEOUT_MS = 45 * 1000;
+const PUBLIC_ID_PATTERN = /^[ACDEFGHJKMNPQRTUVWXY34679]{6}$/;
 
 function normalizePublicId(value) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 function normalizeDisplayName(value) {
@@ -242,8 +243,12 @@ lookupForm.addEventListener("submit", async (event) => {
   showMessage(lookupMessage, "");
 
   const publicId = normalizePublicId(lookupPublicId.value);
-  if (!/^[A-Z0-9]{6}$/.test(publicId)) {
-    showMessage(lookupMessage, "公開IDは大文字英字と数字の6文字で入力してください。", "error");
+  if (!PUBLIC_ID_PATTERN.test(publicId)) {
+    showMessage(
+      lookupMessage,
+      "公開IDは紛らわしい文字を除いた6文字で入力してください。使用しない文字: 0/O/1/I/L/2/Z/5/S/8/B",
+      "error"
+    );
     return;
   }
 
@@ -282,13 +287,6 @@ renameForm.addEventListener("submit", async (event) => {
 
   if (validation.value === currentUsername) {
     showMessage(renameMessage, "同じユーザー名です。", "success");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `${currentUsername || "この参加者"} のユーザー名を ${validation.value} に変更します。\n実行しますか？`
-  );
-  if (!confirmed) {
     return;
   }
 

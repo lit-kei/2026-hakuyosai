@@ -49,6 +49,8 @@ let lastScannedPublicId = "";
 let scannerStarted = false;
 let adminAreaShown = false;
 
+const PUBLIC_ID_PATTERN = /^[ACDEFGHJKMNPQRTUVWXY34679]{6}$/;
+
 function showMessage(element, message, type = "info") {
   element.textContent = message;
   element.className = `message ${type}`;
@@ -56,7 +58,7 @@ function showMessage(element, message, type = "info") {
 }
 
 function normalizePublicId(value) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 async function hasAdminClaim(forceRefresh = false) {
@@ -120,8 +122,12 @@ async function addPublicIdToRoom(rawPublicId, targetMessage) {
   }
 
   const publicId = normalizePublicId(rawPublicId);
-  if (!/^[A-Z0-9]{6}$/.test(publicId)) {
-    showMessage(targetMessage, "公開IDは大文字英字と数字の6文字で入力してください。", "error");
+  if (!PUBLIC_ID_PATTERN.test(publicId)) {
+    showMessage(
+      targetMessage,
+      "公開IDは紛らわしい文字を除いた6文字で入力してください。使用しない文字: 0/O/1/I/L/2/Z/5/S/8/B",
+      "error"
+    );
     return;
   }
 

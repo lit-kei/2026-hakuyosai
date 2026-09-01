@@ -17,9 +17,11 @@ const firebaseConfig = {
   appId: "1:729750832138:web:7248b5bc281179e8ec4bf3"
 };
 
-const INITIAL_BALANCE = 1000;
+const INITIAL_BALANCE = 2000;
 const USER_ID_STORAGE_KEY = "hakuyosaiUserId";
 const PUBLIC_ID_STORAGE_KEY = "hakuyosaiPublicId";
+const PUBLIC_ID_ALPHABET = "ACDEFGHJKMNPQRTUVWXY34679";
+const PUBLIC_ID_PATTERN = /^[ACDEFGHJKMNPQRTUVWXY34679]{6}$/;
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -76,13 +78,16 @@ function createReadableError(error) {
 }
 
 function normalizePublicId(value) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 function validatePublicId(value) {
   const publicId = normalizePublicId(value);
-  if (!/^[A-Z0-9]{6}$/.test(publicId)) {
-    return { ok: false, message: "公開IDは大文字英字と数字の6文字で入力してください。" };
+  if (!PUBLIC_ID_PATTERN.test(publicId)) {
+    return {
+      ok: false,
+      message: "公開IDは紛らわしい文字を除いた6文字で入力してください。使用しない文字: 0/O/1/I/L/2/Z/5/S/8/B"
+    };
   }
   return { ok: true, value: publicId };
 }
@@ -120,10 +125,9 @@ function goToProfile() {
 }
 
 function generatePublicId() {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
   for (let index = 0; index < 6; index += 1) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+    code += PUBLIC_ID_ALPHABET[Math.floor(Math.random() * PUBLIC_ID_ALPHABET.length)];
   }
   return code;
 }
@@ -260,13 +264,6 @@ createForm.addEventListener("submit", async (event) => {
   const validation = validateDisplayName(createName.value);
   if (!validation.ok) {
     showMessage(createMessage, validation.message, "error");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `ユーザー名「${validation.value}」でアカウントを作成します。\nこの名前は他の人と同じものは使えません。\n実行しますか？`
-  );
-  if (!confirmed) {
     return;
   }
 

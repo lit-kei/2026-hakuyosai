@@ -1,4 +1,4 @@
-# 2026 柏葉祭カジノ 資産管理サイト
+# 2026 オキナシステム 資産管理サイト
 
 文化祭のカジノ企画で、参加者が持っているゲーム内ポイント・チップを管理するための静的Webサイトです。実際のお金や決済機能は扱いません。
 
@@ -73,7 +73,7 @@ transactions/{transactionId}
 
 `displayName` は画面上のユーザー名です。使用できる文字は半角英数字、ハイフン、アンダースコアのみで、1〜12文字です。空白は使えません。`usernameKey` は `displayName` を小文字化した値で、`usernames/{usernameKey}` に予約情報を保存します。ユーザー名の重複判定では大文字小文字を区別しないため、`Alice` と `alice` は同じ名前として扱います。
 
-`publicId` は大文字英字と数字からなる6文字のIDです。参加者は `signin.html` でこのIDを入力して `profile.html` に入れます。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
+`publicId` は6文字の公開IDです。手書き時の読み間違いを減らすため、使用文字は `ACDEFGHJKMNPQRTUVWXY34679` のみにしています。`0/O`、`1/I/L`、`2/Z`、`5/S`、`8/B` は使いません。候補数は `25^6 = 244,140,625` 通りです。作成時は `publicIds/{publicId}` をFirestore transaction内で確認し、衝突した場合は最大12回まで別IDを再生成します。参加者プロフィールのQRコードにはこの `publicId` だけを入れています。QRコードを表示できない場合は、スタッフが `room-scan.html` でこのIDを手入力できます。
 
 `roomMembers/{userId}` は参加者の現在いる部屋を表します。同じ参加者を別の部屋に追加すると、このドキュメントが上書きされるため、所属は常に1部屋だけです。
 
@@ -88,10 +88,10 @@ transactions/{transactionId}
 初期残高は `assets/js/signin.js` の次の定数で変更できます。
 
 ```js
-const INITIAL_BALANCE = 1000;
+const INITIAL_BALANCE = 2000;
 ```
 
-変更した場合は、`firestore.rules` の `request.resource.data.balance == 1000` も同じ値に変更してください。
+変更した場合は、`firestore.rules` の `request.resource.data.balance == 2000` も同じ値に変更してください。
 
 ## 管理者設定方法
 
