@@ -620,11 +620,11 @@ function renderMembers() {
 
     header.append(nameBlock, balanceArea);
 
-    // ±100 / ±500
+    // ±1000
     const quickGrid = document.createElement("div");
     quickGrid.className = "balance-controls";
 
-    [-100, 100].forEach((amount) => {
+    [-1000, 1000].forEach((amount) => {
       const button = document.createElement("button");
 
       button.type = "button";
@@ -683,7 +683,7 @@ function renderMembers() {
     customDirectionButtons.append(plusButton, minusButton);
 
     const customSubmitButton = document.createElement("button");
-    customSubmitButton.type = "submit";
+    customSubmitButton.type = "button";
     customSubmitButton.textContent = "反映";
     customSubmitButton.disabled = !user || isSavingBalances;
 
@@ -692,8 +692,14 @@ function renderMembers() {
     customMessage.hidden = true;
 
     customForm.append(customInput, customDirectionButtons, customSubmitButton, customMessage);
-    customForm.addEventListener("submit", (event) => {
-      event.preventDefault();
+
+    customInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
+
+    customSubmitButton.addEventListener("click", () => {
       if (!user || isSavingBalances) {
         return;
       }
@@ -701,6 +707,9 @@ function renderMembers() {
       if (addCustomAmount(user.id, customInput.value, customDirection, customMessage)) {
         customInput.value = "";
       }
+    });
+    customForm.addEventListener("submit", (event) => {
+      event.preventDefault();
     });
 
     // その人の変更だけリセット
@@ -771,6 +780,18 @@ async function saveAllBalanceChanges() {
     isSavingBalances ||
     pendingDeltas.size === 0
   ) {
+    return;
+  }
+
+  const hasUnappliedCustomAmount = [...memberList.querySelectorAll(".custom-delta-form input")]
+    .some((input) => input.value.trim() !== "");
+
+  if (hasUnappliedCustomAmount) {
+    showMessage(
+      roomMessage,
+      "任意額に未反映の入力があります。反映するか空にしてから一括保存してください。",
+      "error"
+    );
     return;
   }
 
