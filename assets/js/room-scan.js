@@ -201,7 +201,10 @@ function startScanner() {
     {
       fps: 10,
       qrbox: { width: 250, height: 250 },
-      rememberLastUsedCamera: true
+      videoConstraints: {
+        facingMode: { ideal: "environment" }
+      },
+      rememberLastUsedCamera: false
     },
     false
   );

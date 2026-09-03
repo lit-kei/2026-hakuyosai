@@ -688,6 +688,11 @@ button:disabled {
 
 .qr-reader video {
   max-width: 100%;
+  transform: scaleX(-1) !important;
+}
+
+.qr-reader canvas {
+  transform: scaleX(-1) !important;
 }
 
 .hidden {
