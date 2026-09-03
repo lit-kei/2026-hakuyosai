@@ -29,12 +29,15 @@ const displayScroller = document.querySelector("#displayScroller");
 const displayList = document.querySelector("#displayList");
 const sortButtons = document.querySelectorAll("[data-sort]");
 
-let renderRequestId = 0;
 let allMembers = [];
+let unsubscribeMembers = null;
 let sortMode = "join";
 let scrollAnimationId = 0;
 let scrollPauseTimer = 0;
 let lastScrollFrameAt = 0;
+const membershipMap = new Map();
+const userMap = new Map();
+const userUnsubscribes = new Map();
 
 const shouldAutoScroll = new URLSearchParams(location.search).get("scroll") === "true";
 const SCROLL_SPEED_PX_PER_MS = 0.035;
@@ -65,7 +68,7 @@ function toMillis(timestamp) {
 
 function compareJoinedAt(a, b) {
   const joinedDiff = toMillis(a.membership.joinedAt) - toMillis(b.membership.joinedAt);
-  return joinedDiff || a.user?.id?.localeCompare(b.user?.id || "") || 0;
+  return joinedDiff || (a.user?.id || a.memberId || "").localeCompare(b.user?.id || b.memberId || "");
 }
 
 function sortMembers(members) {
@@ -162,6 +165,79 @@ function restartAutoScroll() {
   });
 }
 
+function rebuildMembers() {
+  allMembers = [...membershipMap.entries()].map(([memberId, membership]) => {
+    return {
+      membership,
+      memberId,
+      user: userMap.has(memberId) ? userMap.get(memberId) : null
+    };
+  });
+  renderRows(sortMembers(allMembers));
+}
+
+function unsubscribeUser(userId) {
+  const unsubscribe = userUnsubscribes.get(userId);
+  if (unsubscribe) {
+    unsubscribe();
+    userUnsubscribes.delete(userId);
+  }
+  userMap.delete(userId);
+}
+
+function watchUser(userId) {
+  if (userUnsubscribes.has(userId)) {
+    return;
+  }
+
+  const unsubscribe = onSnapshot(
+    doc(db, "users", userId),
+    (snapshot) => {
+      userMap.set(
+        userId,
+        snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null
+      );
+      rebuildMembers();
+    },
+    () => {
+      userMap.set(userId, null);
+      rebuildMembers();
+    }
+  );
+
+  userUnsubscribes.set(userId, unsubscribe);
+}
+
+function syncMembers(memberSnapshots) {
+  const activeIds = new Set(memberSnapshots.map((memberSnapshot) => memberSnapshot.id));
+
+  [...membershipMap.keys()].forEach((memberId) => {
+    if (!activeIds.has(memberId)) {
+      membershipMap.delete(memberId);
+      unsubscribeUser(memberId);
+    }
+  });
+
+  memberSnapshots.forEach((memberSnapshot) => {
+    membershipMap.set(memberSnapshot.id, memberSnapshot.data());
+    watchUser(memberSnapshot.id);
+  });
+
+  rebuildMembers();
+}
+
+function cleanupSubscriptions() {
+  if (unsubscribeMembers) {
+    unsubscribeMembers();
+    unsubscribeMembers = null;
+  }
+
+  userUnsubscribes.forEach((unsubscribe) => unsubscribe());
+  userUnsubscribes.clear();
+  membershipMap.clear();
+  userMap.clear();
+}
+
 function renderRows(members) {
   stopAutoScroll();
   displayList.innerHTML = "";
@@ -213,30 +289,6 @@ function renderRows(members) {
   restartAutoScroll();
 }
 
-async function renderMembers(memberSnapshots) {
-  const requestId = ++renderRequestId;
-  const joinedSnapshots = [...memberSnapshots].sort((a, b) => {
-    const joinedDiff = toMillis(a.data().joinedAt) - toMillis(b.data().joinedAt);
-    return joinedDiff || a.id.localeCompare(b.id);
-  });
-
-  const members = await Promise.all(
-    joinedSnapshots.map(async (memberSnapshot) => {
-      const userSnapshot = await getDoc(doc(db, "users", memberSnapshot.id));
-      return {
-        membership: memberSnapshot.data(),
-        user: userSnapshot.exists() ? { id: userSnapshot.id, ...userSnapshot.data() } : null
-      };
-    })
-  );
-
-  if (requestId !== renderRequestId) {
-    return;
-  }
-  allMembers = members;
-  renderRows(sortMembers(allMembers));
-}
-
 sortButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const nextSortMode = button.dataset.sort;
@@ -271,9 +323,9 @@ async function init() {
     roomTitle.textContent = room.name || "名前なしの部屋";
 
     const membersQuery = query(collection(db, "roomMembers"), where("roomId", "==", roomId));
-    onSnapshot(
+    unsubscribeMembers = onSnapshot(
       membersQuery,
-      (snapshot) => renderMembers(snapshot.docs),
+      (snapshot) => syncMembers(snapshot.docs),
       (error) => showMessage(`参加者の取得に失敗しました: ${error.message}`, "error")
     );
   } catch (error) {
@@ -283,3 +335,5 @@ async function init() {
 
 updateSortButtons();
 init();
+
+window.addEventListener("pagehide", cleanupSubscriptions);

@@ -54,6 +54,9 @@ let members = [];
 let unsubscribeMembers = null;
 let processingUserId = "";
 let adminAreaShown = false;
+const membershipMap = new Map();
+const userMap = new Map();
+const userUnsubscribes = new Map();
 const pendingDeltas = new Map();
 let isSavingBalances = false;
 let draggedUserId = "";
@@ -104,6 +107,86 @@ function applyMemberOrder(nextMembers) {
   return [...nextMembers].sort((a, b) => {
     return (orderIndex.get(getMemberUserId(a)) ?? 9999) - (orderIndex.get(getMemberUserId(b)) ?? 9999);
   });
+}
+
+function rebuildMembers() {
+  members = applyMemberOrder(
+    [...membershipMap.entries()].map(([memberId, membership]) => {
+      return {
+        memberId,
+        membership,
+        user: userMap.has(memberId) ? userMap.get(memberId) : null
+      };
+    })
+  );
+  renderMembers();
+  updateBatchControls();
+}
+
+function unsubscribeUser(userId) {
+  const unsubscribe = userUnsubscribes.get(userId);
+  if (unsubscribe) {
+    unsubscribe();
+    userUnsubscribes.delete(userId);
+  }
+  userMap.delete(userId);
+}
+
+function watchUser(userId) {
+  if (userUnsubscribes.has(userId)) {
+    return;
+  }
+
+  const unsubscribe = onSnapshot(
+    doc(db, "users", userId),
+    (snapshot) => {
+      userMap.set(
+        userId,
+        snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null
+      );
+      rebuildMembers();
+    },
+    () => {
+      userMap.set(userId, null);
+      rebuildMembers();
+    }
+  );
+
+  userUnsubscribes.set(userId, unsubscribe);
+}
+
+function syncMembers(memberSnapshots) {
+  if (draggedUserId) {
+    finishMemberSort(false);
+  }
+
+  const activeIds = new Set(memberSnapshots.map((memberSnapshot) => memberSnapshot.id));
+
+  [...membershipMap.keys()].forEach((memberId) => {
+    if (!activeIds.has(memberId)) {
+      membershipMap.delete(memberId);
+      unsubscribeUser(memberId);
+    }
+  });
+
+  memberSnapshots.forEach((memberSnapshot) => {
+    membershipMap.set(memberSnapshot.id, memberSnapshot.data());
+    watchUser(memberSnapshot.id);
+  });
+
+  rebuildMembers();
+}
+
+function cleanupSubscriptions() {
+  if (unsubscribeMembers) {
+    unsubscribeMembers();
+    unsubscribeMembers = null;
+  }
+
+  userUnsubscribes.forEach((unsubscribe) => unsubscribe());
+  userUnsubscribes.clear();
+  membershipMap.clear();
+  userMap.clear();
 }
 
 function moveMemberOrder(targetUserId, insertAfter = false) {
@@ -429,26 +512,6 @@ async function loadRoom() {
   scanButton.href = `room-scan.html?id=${encodeURIComponent(roomId)}`;
   displayButton.href = `room-display.html?id=${encodeURIComponent(roomId)}`;
   return true;
-}
-
-async function hydrateMembers(memberSnapshots) {
-  if (draggedUserId) {
-    finishMemberSort(false);
-  }
-
-  const nextMembers = await Promise.all(
-    memberSnapshots.map(async (memberSnapshot) => {
-      const userSnapshot = await getDoc(doc(db, "users", memberSnapshot.id));
-      return {
-        memberId: memberSnapshot.id,
-        membership: memberSnapshot.data(),
-        user: userSnapshot.exists() ? { id: userSnapshot.id, ...userSnapshot.data() } : null
-      };
-    })
-  );
-
-  members = applyMemberOrder(nextMembers);
-  renderMembers();
 }
 
 function renderMembers() {
@@ -836,13 +899,13 @@ async function saveAllBalanceChanges() {
 }
 function watchMembers() {
   if (unsubscribeMembers) {
-    unsubscribeMembers();
+    cleanupSubscriptions();
   }
 
   const membersQuery = query(collection(db, "roomMembers"), where("roomId", "==", roomId));
   unsubscribeMembers = onSnapshot(
     membersQuery,
-    (snapshot) => hydrateMembers(snapshot.docs),
+    (snapshot) => syncMembers(snapshot.docs),
     (error) => showMessage(memberMessage, `参加者の取得に失敗しました: ${error.message}`, "error")
   );
 }
@@ -930,3 +993,5 @@ window.addEventListener("keydown", (event) => {
     finishMemberSort(false);
   }
 });
+
+window.addEventListener("pagehide", cleanupSubscriptions);
