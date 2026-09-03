@@ -688,10 +688,10 @@ button:disabled {
 
 .qr-reader video {
   max-width: 100%;
-  transform: scaleX(-1) !important;
 }
 
-.qr-reader canvas {
+.is-qr-preview-mirrored .qr-reader video,
+.is-qr-preview-mirrored .qr-reader canvas {
   transform: scaleX(-1) !important;
 }
 

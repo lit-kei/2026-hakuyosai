@@ -37,6 +37,7 @@ const mainPanel = document.querySelector("#mainPanel");
 const roomTitle = document.querySelector("#roomTitle");
 const detailLink = document.querySelector("#detailLink");
 const scanMessage = document.querySelector("#scanMessage");
+const mirrorToggleButton = document.querySelector("#mirrorToggleButton");
 const manualForm = document.querySelector("#manualForm");
 const manualPublicId = document.querySelector("#manualPublicId");
 const manualButton = document.querySelector("#manualButton");
@@ -48,6 +49,7 @@ let isProcessing = false;
 let lastScannedPublicId = "";
 let scannerStarted = false;
 let adminAreaShown = false;
+let isPreviewMirrored = false;
 
 const PUBLIC_ID_PATTERN = /^[ACDEFGHJKMNPQRTUVWXY34679]{6}$/;
 
@@ -201,10 +203,7 @@ function startScanner() {
     {
       fps: 10,
       qrbox: { width: 250, height: 250 },
-      videoConstraints: {
-        facingMode: { ideal: "environment" }
-      },
-      rememberLastUsedCamera: false
+      rememberLastUsedCamera: true
     },
     false
   );
@@ -251,6 +250,15 @@ manualPublicId.addEventListener("input", () => {
 manualForm.addEventListener("submit", (event) => {
   event.preventDefault();
   addPublicIdToRoom(manualPublicId.value, manualMessage);
+});
+
+mirrorToggleButton.addEventListener("click", () => {
+  isPreviewMirrored = !isPreviewMirrored;
+  document.body.classList.toggle("is-qr-preview-mirrored", isPreviewMirrored);
+  mirrorToggleButton.setAttribute("aria-pressed", String(isPreviewMirrored));
+  mirrorToggleButton.textContent = isPreviewMirrored
+    ? "表示の左右反転を戻す"
+    : "表示を左右反転する";
 });
 
 window.addEventListener("pagehide", () => {
