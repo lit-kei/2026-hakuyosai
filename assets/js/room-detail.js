@@ -58,6 +58,7 @@ const membershipMap = new Map();
 const userMap = new Map();
 const userUnsubscribes = new Map();
 const pendingDeltas = new Map();
+const customAmountDrafts = new Map();
 let isSavingBalances = false;
 let draggedUserId = "";
 let memberOrder = [];
@@ -130,6 +131,7 @@ function unsubscribeUser(userId) {
     userUnsubscribes.delete(userId);
   }
   userMap.delete(userId);
+  customAmountDrafts.delete(userId);
 }
 
 function watchUser(userId) {
@@ -341,6 +343,7 @@ function addCustomAmount(userId, rawAmount, direction, messageElement) {
     return false;
   }
 
+  customAmountDrafts.delete(userId);
   changePendingDelta(userId, direction === "subtract" ? -amount : amount);
   showMessage(messageElement, "");
   return true;
@@ -437,6 +440,28 @@ function changePendingDelta(userId, amount) {
 
   renderMembers();
   updateBatchControls();
+}
+
+function updateCustomAmountDraft(userId, patch) {
+  if (!userId) {
+    return;
+  }
+
+  const current = customAmountDrafts.get(userId) || {
+    value: "",
+    direction: "add"
+  };
+  const next = {
+    ...current,
+    ...patch
+  };
+
+  if (next.value === "" && next.direction === "add") {
+    customAmountDrafts.delete(userId);
+    return;
+  }
+
+  customAmountDrafts.set(userId, next);
 }
 
 function showMessage(element, message, type = "info") {
@@ -647,7 +672,10 @@ function renderMembers() {
 
     const customForm = document.createElement("form");
     customForm.className = "custom-delta-form";
-    let customDirection = "add";
+    const customDraft = user
+      ? customAmountDrafts.get(user.id) || { value: "", direction: "add" }
+      : { value: "", direction: "add" };
+    let customDirection = customDraft.direction;
 
     const customInput = document.createElement("input");
     customInput.type = "number";
@@ -655,6 +683,7 @@ function renderMembers() {
     customInput.min = "1";
     customInput.step = "1";
     customInput.placeholder = "任意額";
+    customInput.value = customDraft.value;
     customInput.disabled = !user || isSavingBalances;
 
     const customDirectionButtons = document.createElement("div");
@@ -663,7 +692,7 @@ function renderMembers() {
     const plusButton = document.createElement("button");
     plusButton.type = "button";
     plusButton.textContent = "+";
-    plusButton.className = "is-active plus";
+    plusButton.className = "plus";
     plusButton.disabled = !user || isSavingBalances;
 
     const minusButton = document.createElement("button");
@@ -674,10 +703,14 @@ function renderMembers() {
 
     const setDirection = (direction) => {
       customDirection = direction;
+      if (user) {
+        updateCustomAmountDraft(user.id, { direction });
+      }
       plusButton.classList.toggle("is-active", direction === "add");
       minusButton.classList.toggle("is-active", direction === "subtract");
     };
 
+    setDirection(customDirection);
     plusButton.addEventListener("click", () => setDirection("add"));
     minusButton.addEventListener("click", () => setDirection("subtract"));
     customDirectionButtons.append(plusButton, minusButton);
@@ -698,15 +731,18 @@ function renderMembers() {
         event.preventDefault();
       }
     });
+    customInput.addEventListener("input", () => {
+      if (user) {
+        updateCustomAmountDraft(user.id, { value: customInput.value });
+      }
+    });
 
     customSubmitButton.addEventListener("click", () => {
       if (!user || isSavingBalances) {
         return;
       }
 
-      if (addCustomAmount(user.id, customInput.value, customDirection, customMessage)) {
-        customInput.value = "";
-      }
+      addCustomAmount(user.id, customInput.value, customDirection, customMessage);
     });
     customForm.addEventListener("submit", (event) => {
       event.preventDefault();
